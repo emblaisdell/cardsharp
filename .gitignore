@@ -1,0 +1,12 @@
+node_modules/
+
+# build artifacts (regenerate with packages/web/build.mjs)
+packages/web/public/lib/
+packages/web/public/games/
+packages/web/public/models/
+
+# trained models (regenerate with packages/ml/src/main.ts train)
+models/
+
+*.log
+.DS_Store

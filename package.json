@@ -1,0 +1,19 @@
+{
+  "name": "cardsharp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Card# / CardSharp — a DSL for standard-deck card games, with WebRTC multiplayer and classical-ML strategy learning.",
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "run": "node packages/cli/src/main.ts",
+    "test": "node --test 'packages/core/test/*.test.ts'",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "license": "MIT"
+}

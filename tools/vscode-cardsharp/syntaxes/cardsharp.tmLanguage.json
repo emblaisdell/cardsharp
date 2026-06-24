@@ -1,0 +1,104 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Card#",
+  "scopeName": "source.cardsharp",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#game-header" },
+    { "include": "#section-keywords" },
+    { "include": "#control-keywords" },
+    { "include": "#storage-keywords" },
+    { "include": "#language-constants" },
+    { "include": "#card-constants" },
+    { "include": "#builtins" },
+    { "include": "#function-call" },
+    { "include": "#operators" },
+    { "include": "#punctuation" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.cardsharp",
+          "begin": "//",
+          "end": "$"
+        },
+        {
+          "name": "comment.block.cardsharp",
+          "begin": "/\\*",
+          "end": "\\*/"
+        }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.double.cardsharp",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        { "name": "constant.character.escape.cardsharp", "match": "\\\\." }
+      ]
+    },
+    "numbers": {
+      "name": "constant.numeric.cardsharp",
+      "match": "\\b[0-9]+(\\.[0-9]+)?\\b"
+    },
+    "game-header": {
+      "match": "\\b(game)\\b\\s*(\"[^\"]*\")?",
+      "captures": {
+        "1": { "name": "keyword.other.game.cardsharp" },
+        "2": { "name": "entity.name.type.game.cardsharp" }
+      }
+    },
+    "section-keywords": {
+      "name": "keyword.declaration.section.cardsharp",
+      "match": "\\b(players|deck|zone|setup|flow|score|winners|function|var)\\b"
+    },
+    "control-keywords": {
+      "name": "keyword.control.cardsharp",
+      "match": "\\b(if|else|while|for|in|loop|repeat|break|continue|return)\\b"
+    },
+    "storage-keywords": {
+      "name": "storage.modifier.cardsharp",
+      "match": "\\b(per|player|up|down|owner|pile|stack|hand|fan|spread|standard52)\\b"
+    },
+    "language-constants": {
+      "name": "constant.language.cardsharp",
+      "match": "\\b(true|false|null|current|players|activePlayers|ranks|suits)\\b"
+    },
+    "card-constants": {
+      "patterns": [
+        {
+          "name": "constant.language.card.cardsharp",
+          "match": "\\b(Ace|Jack|Queen|King|Clubs|Diamonds|Hearts|Spades)\\b"
+        },
+        {
+          "name": "constant.character.suit.cardsharp",
+          "match": "[\\u2663\\u2666\\u2665\\u2660]"
+        }
+      ]
+    },
+    "builtins": {
+      "name": "support.function.builtin.cardsharp",
+      "match": "\\b(loadDeck|setValues|others|playerAfter|endTurn|nextPlayer|setCurrent|eliminate|isActive|active|turnIndex|declareWinner|declareWinners|endGame|size|cards|isEmpty|top|bottom|shuffle|move|moveTo|draw|deal|count|countIf|filter|map|any|all|none|sum|maxBy|minBy|sortBy|max|min|reverse|first|last|take|drop|concat|contains|unique|range|groupBy|ranksOf|suitsOf|sameRank|sameSuit|isRun|findMelds|valueOf|handValue|playersWithMax|playersWithMin|choosePlayer|chooseCard|chooseRank|chooseSuit|chooseOption|chooseMaybe|chooseCards|chooseNumber|chooseBool|log|rng|abs|floor|ceil|round)\\b(?=\\s*\\()"
+    },
+    "function-call": {
+      "match": "\\b([A-Za-z_][A-Za-z0-9_]*)\\b(?=\\s*\\()",
+      "captures": {
+        "1": { "name": "entity.name.function.cardsharp" }
+      }
+    },
+    "operators": {
+      "name": "keyword.operator.cardsharp",
+      "match": "(=>|\\.\\.|==|!=|<=|>=|&&|\\|\\||[-+*/%<>=!?:])"
+    },
+    "punctuation": {
+      "patterns": [
+        { "name": "punctuation.terminator.cardsharp", "match": ";" },
+        { "name": "punctuation.separator.cardsharp", "match": "," },
+        { "name": "punctuation.accessor.cardsharp", "match": "\\." }
+      ]
+    }
+  }
+}

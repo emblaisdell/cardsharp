@@ -1,0 +1,82 @@
+// Money Money Money — build a hidden money pile; outlast everyone.
+// See games/moneymoneymoney.md.
+//
+// Demonstrates: a per-player pile nobody can see (visibility `down`), melds with
+// bonus payouts, drawing rules that depend on hand size, deck replenishment that
+// drains every pile, and elimination of the broke. Last player standing wins.
+
+game "Money Money Money" {
+    players 2..6;
+    deck    standard52;
+
+    zone drawdeck : pile;
+    zone center   : pile;                  // replenish scratch
+    zone hand     : hand per player;       // owner sees
+    zone money    : pile per player down;  // NOBODY sees, not even the owner
+
+    setup {
+        loadDeck(drawdeck);
+        shuffle(drawdeck);
+        deal(drawdeck, hand, 5);
+    }
+
+    flow {
+        loop {
+            if (count(activePlayers) <= 1) { break; }
+            var p = current;
+            if (!isActive(p)) { endTurn(); continue; }
+            drawForTurn(p);
+            if (isActive(p)) { playMelds(p); }
+            endTurn();
+        }
+    }
+
+    function drawForTurn(p) {
+        var h = size(hand[p]);
+        var n = h <= 5 ? 2 : (h <= 15 ? 1 : 0);
+        repeat (n) { drawOne(hand[p]); }
+    }
+
+    function drawOne(dest) {
+        if (size(drawdeck) == 0) { replenish(); }
+        if (size(drawdeck) > 0) { move(top(drawdeck, 1), dest); }
+    }
+
+    function playMelds(p) {
+        loop {
+            // offer every book/run (size >= 2), every single, and "done" (an empty meld)
+            var options = concat(findMelds(cards(hand[p])),
+                                 map(cards(hand[p]), c => [c]));
+            options = concat(options, [[]]);
+            var meld = chooseOption(p, options, "Play a meld? (empty = done)");
+            if (count(meld) == 0) { break; }
+            playMeld(p, meld);
+        }
+    }
+
+    function playMeld(p, meld) {
+        var n = count(meld);
+        move(meld, money[p]);              // face down onto the money pile
+        if (n >= 2) {
+            repeat (n * (n - 1)) { drawOne(money[p]); }   // bonus cards, unseen
+        }
+    }
+
+    function replenish() {
+        var empties = filter(activePlayers, q => size(money[q]) == 0);
+        if (count(empties) >= count(activePlayers)) {
+            declareWinners(activePlayers);   // everyone broke at once -> they tie
+            endGame();
+        }
+        for (q in empties) { eliminate(q); }
+        if (count(activePlayers) <= 1) { return; }
+
+        var m = min(map(activePlayers, q => size(money[q])));
+        for (q in activePlayers) { move(top(money[q], m), center); }
+        move(cards(drawdeck), center);
+        move(cards(center), drawdeck);
+        shuffle(drawdeck);
+    }
+
+    winners => activePlayers;
+}

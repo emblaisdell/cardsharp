@@ -1,0 +1,53 @@
+// Blackjack — players versus an automated dealer.
+//
+// Demonstrates: per-card value overrides (setValues), soft-ace scoring,
+// a hit/stand decision loop, an automated house policy, and multiple
+// independent winners (everyone who beats the dealer).
+
+game "Blackjack" {
+    players 1..6;
+    deck    standard52;
+
+    zone stock  : pile;
+    zone hand   : hand per player;
+    zone dealer : spread up;
+
+    setup {
+        loadDeck(stock);
+        // 2..9 pip value; 10/J/Q/K = 10; Ace = 11 (soft, reduced in handScore)
+        setValues(c => c.rank == Ace ? 11 : (c.rank >= 10 ? 10 : c.rank));
+        shuffle(stock);
+        deal(stock, hand, 2);
+        draw(stock, dealer, 2);
+    }
+
+    flow {
+        // each player hits until they stand or bust
+        for (p in players) {
+            loop {
+                if (handScore(hand[p]) >= 21) break;
+                if (!chooseBool(p, "Hit?")) break;
+                draw(stock, hand[p], 1);
+            }
+        }
+        // dealer draws to 17
+        while (handScore(dealer) < 17) { draw(stock, dealer, 1); }
+
+        var d = handScore(dealer);
+        declareWinners(
+            filter(players, p => handScore(hand[p]) <= 21
+                                 && (d > 21 || handScore(hand[p]) > d)));
+        endGame();
+    }
+
+    // best hand total <= 21 where aces may count as 1 instead of 11
+    function handScore(h) {
+        var total = handValue(cards(h));
+        var aces  = countIf(cards(h), c => c.rank == Ace);
+        while (total > 21 && aces > 0) {
+            total = total - 10;
+            aces  = aces - 1;
+        }
+        return total;
+    }
+}

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Card# / CardSharp</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>Card<span class="sharp">#</span> <span class="sub">play any game in the browser</span></h1>
+  </header>
+
+  <section class="setup">
+    <label>Game
+      <select id="game"></select>
+    </label>
+    <label>Players
+      <select id="players"></select>
+    </label>
+    <label>Opponents
+      <select id="opponents">
+        <option value="random">Random bots</option>
+        <option value="ml">ML bots (if trained)</option>
+      </select>
+    </label>
+    <button id="new">New game</button>
+    <span id="status" class="status"></span>
+  </section>
+
+  <main>
+    <section id="board" class="board"></section>
+    <aside class="side">
+      <div id="controls" class="controls"></div>
+      <h3>Move log</h3>
+      <ol id="log" class="log"></ol>
+    </aside>
+  </main>
+
+  <footer>
+    Engine, type checker and ML run entirely client-side — no server-side game
+    logic. View source: <code>packages/web/public/app.js</code>.
+  </footer>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

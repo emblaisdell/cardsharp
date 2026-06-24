@@ -1,0 +1,94 @@
+// The Table-less Card Game — everything stays in hand; flip and race to call
+// the highest card. See games/tableless.md.
+//
+// Demonstrates: per-player decks (no shared stock), a discretized simultaneous
+// reveal, a "call now vs. keep counting" decision, tie-break-by-call, the
+// King/odd-Ace steal, and loss-by-running-out elimination.
+//
+// Visibility: your deck (`stack`) is face down and hidden even from you; your
+// flips (`showing`) are visible only to you. The engine — an impartial referee —
+// reads every player's showing to resolve a round, exactly like the moment cards
+// are revealed in the real game; no player's observation ever exposes another's.
+
+game "The Table-less Card Game" {
+    players 2..6;
+    deck    standard52;
+
+    zone pool    : pile;                       // setup scratch only
+    zone stack   : stack per player down;      // your face-down deck — NOBODY sees it
+    zone showing : spread per player owner;    // your flips — visible only to you
+
+    setup {
+        loadDeck(pool);
+        shuffle(pool);
+        // split the deck as evenly as possible among players
+        loop {
+            if (size(pool) == 0) { break; }
+            for (q in players) { if (size(pool) > 0) { move(top(pool, 1), stack[q]); } }
+        }
+    }
+
+    flow {
+        loop {
+            if (count(activePlayers) <= 1) { break; }
+            playRound();
+        }
+    }
+
+    function playRound() {
+        loop {
+            // count step: every active player flips their next card
+            for (q in activePlayers) {
+                if (size(stack[q]) > 0) { move(top(stack[q], 1), showing[q]); }
+            }
+
+            // gather callers: anyone out of cards MUST call; others may choose
+            var callers = [];
+            for (q in activePlayers) {
+                var forced = size(stack[q]) == 0;
+                var calls  = forced ? true : chooseBool(q, "Call now?");
+                if (calls) { callers = concat(callers, [q]); }
+            }
+
+            if (count(callers) > 0) { resolveRound(callers); break; }
+        }
+    }
+
+    function resolveRound(callers) {
+        var topRank = max(map(activePlayers, q => bestRank(q)));
+        var cands   = filter(activePlayers, q => bestRank(q) == topRank);
+
+        // highest card wins; a caller wins ties
+        var winner       = first(cands);
+        var callerCands  = filter(cands, q => contains(callers, q));
+        if (count(callerCands) > 0) { winner = first(callerCands); }
+
+        // King/odd-Ace steal: a King is beaten by an odd number of aces showing
+        if (topRank == King) {
+            var oddAce = filter(activePlayers,
+                                q => countIf(cards(showing[q]), c => c.rank == Ace) % 2 == 1);
+            if (count(oddAce) > 0) { winner = first(oddAce); }
+        }
+
+        awardRound(winner);
+
+        // a loser who ran out of cards is eliminated
+        for (q in players) {
+            if (isActive(q) && q.id != winner.id && size(stack[q]) == 0) { eliminate(q); }
+        }
+    }
+
+    // winner sweeps every showing card, shuffles, and puts them on their deck bottom
+    function awardRound(winner) {
+        for (q in activePlayers) { move(cards(showing[q]), showing[winner]); }
+        shuffle(showing[winner]);
+        moveTo(cards(showing[winner]), stack[winner], "bottom");
+    }
+
+    function bestRank(q) {
+        if (size(showing[q]) == 0) { return 0; }   // Ace low, King high (rank order)
+        return max(map(cards(showing[q]), c => c.rank));
+    }
+
+    winners => activePlayers;
+}

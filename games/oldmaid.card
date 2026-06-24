@@ -1,0 +1,65 @@
+// Old Maid — remove one Queen, pair off, and don't be left holding the odd one.
+//
+// Demonstrates: removing a card from the deck, dealing the whole deck out,
+// discarding pairs, a blind draw from a neighbour (modeled with rng()),
+// elimination, and "everyone but the loser wins".
+
+game "Old Maid" {
+    players 2..6;
+    deck    standard52;
+
+    zone stock   : pile;
+    zone hand    : hand per player;
+    zone discard : pile up;        // the matched pairs
+    zone removed : pile;           // the Queen taken out at the start
+
+    setup {
+        loadDeck(stock);
+        // remove a single Queen so exactly one is left unpaired
+        move(first(filter(cards(stock), c => c.rank == Queen)), removed);
+        shuffle(stock);
+        // deal the whole stock out, one card at a time
+        loop {
+            if (size(stock) == 0) break;
+            for (p in players) {
+                if (size(stock) > 0) { move(top(stock, 1), hand[p]); }
+            }
+        }
+    }
+
+    flow {
+        for (p in players) { discardPairs(p); }
+        for (p in players) { if (size(hand[p]) == 0) { eliminate(p); } }
+
+        if (count(activePlayers) > 0) { setCurrent(first(activePlayers)); }
+
+        loop {
+            if (count(activePlayers) <= 1) break;
+
+            var target = playerAfter(current);     // next player still holding cards
+            var pool   = cards(hand[target]);
+            var idx    = floor(rng() * count(pool));
+            move(pool[idx], hand[current]);        // blind draw
+            discardPairs(current);
+
+            if (size(hand[target]) == 0) { eliminate(target); }
+            if (size(hand[current]) == 0) { eliminate(current); }
+            endTurn();
+        }
+    }
+
+    // discard every pair currently in p's hand
+    function discardPairs(p) {
+        loop {
+            var dup = -1;
+            for (r in ranksOf(cards(hand[p]))) {
+                if (countIf(cards(hand[p]), c => c.rank == r) >= 2) { dup = r; }
+            }
+            if (dup < 0) break;
+            move(take(filter(cards(hand[p]), c => c.rank == dup), 2), discard);
+        }
+    }
+
+    // everyone who got rid of all their cards wins; the Old Maid holder loses
+    winners => filter(players, p => !isActive(p));
+}

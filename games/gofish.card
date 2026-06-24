@@ -1,0 +1,87 @@
+// Go Fish — the canonical "ask another player for a rank" game.
+//
+// Demonstrates: per-player hidden hands, a shared face-down stock, public
+// melds (books), asking another player (a player choice + a rank choice),
+// "go again" turns, and a scored terminal.
+
+game "Go Fish" {
+    players 2..6;
+    deck    standard52;
+
+    zone pond  : pile;                 // the draw stock (shared, face down)
+    zone hand  : hand per player;      // each player's hand (owner sees)
+    zone books : spread per player up;   // completed four-of-a-kinds (public)
+
+    var passes = 0;   // consecutive failed asks once the pond is empty
+
+    setup {
+        loadDeck(pond);
+        shuffle(pond);
+        deal(pond, hand, count(players) <= 3 ? 7 : 5);
+    }
+
+    flow {
+        loop {
+            if (gameOver()) break;
+
+            // a player with an empty hand draws (or is skipped if none left)
+            if (size(hand[current]) == 0) {
+                if (size(pond) > 0) {
+                    move(top(pond, 1), hand[current]);
+                } else {
+                    endTurn();
+                    continue;
+                }
+            }
+
+            var targets = filter(others(current), p => size(hand[p]) > 0);
+            if (count(targets) == 0) {
+                if (size(pond) == 0) { endGame(); }
+                move(top(pond, 1), hand[current]);
+                collectBooks(current);
+                endTurn();
+                continue;
+            }
+
+            var target = choosePlayer(current, targets, "Ask whom for cards?");
+            var rank   = chooseRank(current, ranksOf(cards(hand[current])),
+                                    "Ask for which rank?");
+            var got    = filter(cards(hand[target]), c => c.rank == rank);
+
+            if (count(got) > 0) {
+                move(got, hand[current]);
+                passes = 0;
+                collectBooks(current);
+                // caught one: the current player goes again (no endTurn)
+            } else {
+                passes = passes + 1;
+                var fished = false;
+                if (size(pond) > 0) {
+                    var drawn = top(pond, 1);
+                    move(drawn, hand[current]);
+                    passes = 0;
+                    if (first(drawn).rank == rank) { fished = true; }
+                }
+                collectBooks(current);
+                if (!fished) { endTurn(); }
+            }
+
+            // empty pond + a full lap of failed asks => no progress possible
+            if (size(pond) == 0 && passes >= count(players)) { endGame(); }
+        }
+    }
+
+    function collectBooks(p) {
+        for (r in ranksOf(cards(hand[p]))) {
+            var set = filter(cards(hand[p]), c => c.rank == r);
+            if (count(set) == 4) { move(set, books[p]); }
+        }
+    }
+
+    function gameOver() {
+        return size(pond) == 0 && all(players, p => size(hand[p]) == 0);
+    }
+
+    score   p => count(cards(books[p])) / 4;   // number of completed books
+    winners => playersWithMax(p => score(p));
+}

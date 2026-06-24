@@ -1,0 +1,13 @@
+{
+  "name": "@cardsharp/cli",
+  "version": "0.1.0",
+  "description": "Command-line runner for Card# games (simulate with bots, or play in the terminal).",
+  "type": "module",
+  "bin": {
+    "cardsharp": "src/main.ts"
+  },
+  "dependencies": {
+    "@cardsharp/core": "0.1.0"
+  },
+  "license": "MIT"
+}

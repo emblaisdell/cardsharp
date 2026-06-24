@@ -1,0 +1,94 @@
+// The Wall — each suit does what it looks like.  See games/thewall.md.
+//
+// Diamonds = treasure (decide the winner), Hearts = your wall (health),
+// Spades = steal diamonds, Clubs = smash the wall. Defenders surrender a set of
+// the appropriate suit summing to >= the attack value (no overflow).
+//
+// Demonstrates: suits as roles, targeted attacks, value-based surrender sets,
+// per-turn play limits, draw-down-to-7, and a deck-exhaustion end phase.
+
+game "The Wall" {
+    players 2..6;
+    deck    standard52;
+
+    zone stock    : stack;                  // draw deck (collapsed pile)
+    zone hand     : hand per player;         // your hand spread; opponents hidden
+    zone diamonds : spread per player up;    // treasure — fully visible
+    zone wall     : spread per player up;    // hearts — fully visible
+    zone discard  : stack up;                // collapsed pile
+
+    setup {
+        loadDeck(stock);
+        // pip value; face = 10; Ace = 11
+        setValues(c => c.rank == Ace ? 11 : (c.rank >= 11 ? 10 : c.rank));
+        shuffle(stock);
+        deal(stock, hand, 7);
+    }
+
+    flow {
+        loop {
+            if (isEmpty(stock) && all(players, p => size(hand[p]) == 0)) { break; }
+
+            var p = current;
+            if (size(hand[p]) == 0) { endTurn(); continue; }     // skip the empty-handed
+
+            if (!isEmpty(stock)) { draw(stock, hand[p], min(2, size(stock))); }
+
+            // play 0..3 cards (at least 1 once the deck is gone). A single
+            // Option-style choice: pick a card to play, or decline to stop.
+            var played = 0;
+            loop {
+                if (played >= 3 || size(hand[p]) == 0) { break; }
+                var card = (isEmpty(stock) && played == 0)
+                    ? chooseCard(p, cards(hand[p]), "Play a card")
+                    : chooseMaybe(p, cards(hand[p]), "Play a card, or stop for the turn");
+                if (card == null) { break; }
+                playCard(p, card);
+                played = played + 1;
+            }
+
+            // end the turn at <= 7 cards
+            while (size(hand[p]) > 7) {
+                move(chooseCard(p, cards(hand[p]), "Discard down to 7"), discard);
+            }
+            endTurn();
+        }
+
+        declareWinners(playersWithMax(p => sum(cards(diamonds[p]), c => c.value)));
+        endGame();
+    }
+
+    function playCard(p, card) {
+        if (card.suit == Diamonds) { move(card, diamonds[p]); }
+        else if (card.suit == Hearts) { move(card, wall[p]); }
+        else {
+            var target = choosePlayer(p, others(p), "Attack whom?");
+            if (card.suit == Spades) {
+                // steal diamonds summing to >= value
+                move(surrenderSet(diamonds[target], card.value), diamonds[p]);
+            } else {
+                // club: smash the wall, or take all diamonds if there's no wall
+                if (isEmpty(wall[target])) {
+                    move(cards(diamonds[target]), diamonds[p]);
+                } else {
+                    move(surrenderSet(wall[target], card.value), discard);
+                }
+            }
+            move(card, discard);
+        }
+    }
+
+    // smallest-value cards that sum to >= value; or everything if unreachable
+    function surrenderSet(pile, value) {
+        var taken = [];
+        var total = 0;
+        for (c in sortBy(cards(pile), x => x.value)) {
+            if (total >= value) { break; }
+            taken = concat(taken, [c]);
+            total = total + c.value;
+        }
+        return taken;
+    }
+
+    winners => playersWithMax(p => sum(cards(diamonds[p]), c => c.value));
+}

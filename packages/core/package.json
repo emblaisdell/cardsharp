@@ -1,0 +1,14 @@
+{
+  "name": "@cardsharp/core",
+  "version": "0.1.0",
+  "description": "The Card# language: lexer, parser, interpreter, and card-game runtime. Zero runtime dependencies.",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node --test 'test/*.test.ts'"
+  },
+  "license": "MIT"
+}

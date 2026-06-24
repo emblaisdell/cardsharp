@@ -1,0 +1,45 @@
+{
+  "name": "cardsharp",
+  "displayName": "Card# / CardSharp",
+  "description": "Syntax highlighting and live type-checking for the Card# card-game DSL.",
+  "version": "0.1.0",
+  "publisher": "cardsharp",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": ["Programming Languages", "Linters"],
+  "main": "./extension.js",
+  "activationEvents": ["onLanguage:cardsharp"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "cardsharp",
+        "aliases": ["Card#", "CardSharp", "cardsharp"],
+        "extensions": [".card"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "cardsharp",
+        "scopeName": "source.cardsharp",
+        "path": "./syntaxes/cardsharp.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "Card#",
+      "properties": {
+        "cardsharp.typeCheck": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run the Card# static type checker on open/save and show diagnostics."
+        },
+        "cardsharp.repoPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the CardSharp repo (with packages/cli). Empty = auto-detect from the workspace."
+        }
+      }
+    }
+  }
+}
