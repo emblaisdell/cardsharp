@@ -5,7 +5,8 @@
 // the appropriate suit summing to >= the attack value (no overflow).
 //
 // Demonstrates: suits as roles, targeted attacks, value-based surrender sets,
-// per-turn play limits, draw-down-to-7, and a deck-exhaustion end phase.
+// a per-turn play cap (0-3 cards, no discarding; you only end early at <= 7
+// cards), and a deck-exhaustion end phase.
 
 game "The Wall" {
     players 2..6;
@@ -30,26 +31,36 @@ game "The Wall" {
             if (isEmpty(stock) && all(players, p => size(hand[p]) == 0)) { break; }
 
             var p = current;
-            if (size(hand[p]) == 0) { endTurn(); continue; }     // skip the empty-handed
-
-            if (!isEmpty(stock)) { draw(stock, hand[p], min(2, size(stock))); }
-
-            // play 0..3 cards (at least 1 once the deck is gone). A single
-            // Option-style choice: pick a card to play, or decline to stop.
-            var played = 0;
-            loop {
-                if (played >= 3 || size(hand[p]) == 0) { break; }
-                var card = (isEmpty(stock) && played == 0)
-                    ? chooseCard(p, cards(hand[p]), "Play a card")
-                    : chooseMaybe(p, cards(hand[p]), "Play a card, or stop for the turn");
-                if (card == null) { break; }
-                playCard(p, card);
-                played = played + 1;
+            // While the deck has cards you draw at the start of your turn even if
+            // your hand was empty; an empty hand is only skipped once the deck is
+            // gone. This is what guarantees termination: the stock strictly
+            // depletes every turn until it's empty, after which hands only shrink.
+            if (!isEmpty(stock)) {
+                draw(stock, hand[p], min(2, size(stock)));
+            } else if (size(hand[p]) == 0) {
+                endTurn();
+                continue;
             }
 
-            // end the turn at <= 7 cards
-            while (size(hand[p]) > 7) {
-                move(chooseCard(p, cards(hand[p]), "Discard down to 7"), discard);
+            // Play up to 3 cards per turn. There is no discarding: the only way
+            // the hand shrinks is by playing. You are offered the choice to stop
+            // early ONLY while holding <= 7 cards; above 7 you must keep playing.
+            // (Once the deck is empty you must also play at least one card per
+            // turn, so the game can terminate.) Since the hand starts the turn at
+            // <= 7 and only draws 2, three plays always reach <= 7 — so the cap
+            // never softlocks you above the limit.
+            var played = 0;
+            loop {
+                if (size(hand[p]) == 0 || played >= 3) { break; }
+                var canStop = size(hand[p]) <= 7 && !(isEmpty(stock) && played == 0);
+                if (canStop) {
+                    var card = chooseMaybe(p, cards(hand[p]), "Play a card, or stop for the turn");
+                    if (card == null) { break; }
+                    playCard(p, card);
+                } else {
+                    playCard(p, chooseCard(p, cards(hand[p]), "Play a card"));
+                }
+                played = played + 1;
             }
             endTurn();
         }

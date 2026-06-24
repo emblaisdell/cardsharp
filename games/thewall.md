@@ -46,7 +46,11 @@ Turns always proceed in the **same fixed order**.
    * **Diamond or heart (resource):** placed in front of you (into your diamonds
      or your wall).
    * **Spade or club (attack):** choose a **target** rival; resolve as below.
-3. **End your turn with ≤ 7 cards in hand** (discard down if needed).
+3. **End your turn.** You may choose to stop early **only while holding ≤ 7
+   cards.** There is **no discarding** — if you're still above 7 you are not
+   offered the option to stop, so you must keep playing (up to the 3-card limit)
+   until you're at 7 or fewer. Because you start the turn at ≤ 7 and draw only 2,
+   three plays is always enough to get back to ≤ 7.
 
 ### Resolving an attack — the No-Change Rule
 
@@ -94,8 +98,11 @@ them.
    diamonds, per the brief.
 4. **Targets** are chosen by the attacker among the other players; self-targeting
    is not allowed.
-5. **"Play 0–3 cards"** is enforced per turn; the hand-size-≤7 limit is enforced
-   by discarding at end of turn.
+5. **"Play 0–3 cards"** is enforced per turn. There is **no discarding**: the
+   hand-size-≤7 limit is enforced by *gating the option to stop* — you only get
+   the choice to end your turn once you hold ≤ 7 cards. Since you draw just 2 and
+   start ≤ 7, the 3-card cap always lets you reach ≤ 7, so it never traps you
+   above the limit.
 6. **Deck-empty "must play one":** if a player has cards but the only legal thing
    is to play a resource, that still satisfies the requirement. A player with an
    empty hand is skipped; the game ends when all hands are empty.

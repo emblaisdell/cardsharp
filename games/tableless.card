@@ -70,11 +70,18 @@ game "The Table-less Card Game" {
             if (count(oddAce) > 0) { winner = first(oddAce); }
         }
 
+        var pot = 0;
+        for (q in activePlayers) { pot = pot + size(showing[q]); }
+        announce(winner.name + " wins the round (" + pot + " cards)");
+
         awardRound(winner);
 
         // a loser who ran out of cards is eliminated
         for (q in players) {
-            if (isActive(q) && q.id != winner.id && size(stack[q]) == 0) { eliminate(q); }
+            if (isActive(q) && q.id != winner.id && size(stack[q]) == 0) {
+                eliminate(q);
+                announce(q.name + " is out of cards");
+            }
         }
     }
 
