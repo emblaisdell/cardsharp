@@ -177,30 +177,63 @@ Blocks introduce a new scope. Lambdas close over their enclosing scope.
 
 The engine never decides anything. Game code asks the acting player to choose,
 and the call **suspends** until a controller (human, bot, or ML agent) answers.
-Each `choose*` builtin presents the legal options and returns the pick.
+There is exactly **one** decision primitive:
 
 ```c
-choosePlayer(who, options, prompt)            -> player
-chooseCard(who, options, prompt)              -> card
-chooseCards(who, options, min, max, prompt)   -> list of cards
-chooseRank(who, options, prompt)              -> number (a rank)
-chooseSuit(who, options, prompt)              -> number (a suit)
-chooseOption(who, options, prompt)            -> one of options (any values)
-chooseMaybe(who, options, prompt)             -> one of options, or null to decline
-chooseNumber(who, lo, hi, prompt)             -> number in [lo, hi]
-chooseBool(who, prompt)                       -> bool
+choose(who, options, prompt)   -> one of options
 ```
 
-`chooseMaybe` is the `Option<...>` form: the player may pick an option *or* decline
-(returns `null`) — e.g. "play a card, or stop your turn" as one decision instead
-of a separate boolean. Controllers may answer with `null`; the browser shows a
-"Stop / Pass" button.
+* `who` is the deciding player.
+* `options` is the legal set — a list of *any displayable values*. The controller
+  may only return a member of it (the engine validates).
+* `choose` returns the chosen option.
 
-`who` is the deciding player. `options` is the legal set — the controller may
-only return a member of it (the engine validates). Because every branch point is
-an explicit, enumerated choice, the same game is directly usable as a turn-based
-multiplayer protocol and as an ML environment: at each step the engine yields
-`{ player, observation, kind, options }` and resumes with the chosen value.
+**Options can be anything displayable**, and how each option renders is derived
+from its own runtime value — there is no per-call "kind". A `card` draws as a
+card, a `player` as its name, a `list` (e.g. a meld) as its cards, a `bool` as
+Yes/No, a `string`/`number` as itself:
+
+```c
+choose(p, cards(hand[p]), "Discard")          // card
+choose(p, others(p), "Attack whom?")          // player
+choose(p, [true, false], "Hit?")              // bool  (Yes / No buttons)
+choose(p, findMelds(cards(hand[p])), "Meld?") // list  (a meld)
+```
+
+**Declining (`Option<T>`).** Include `null` among the options: it renders as a
+**"None"** button and `choose` returns `null` if picked. So "play a card, or
+stop" is one decision, not a card-choice plus a separate boolean. In `Option<T>`
+terms `null` is `None` and every other option `t` is `Some(t)` that displays as
+`t` — there is no wrapper to unwrap:
+
+```c
+var card = choose(p, concat(cards(hand[p]), [null]), "Play a card, or stop");
+if (card == null) { /* declined */ }
+```
+
+**Custom labels — `labeled(value, text)`.** To control how an option displays
+without changing the value `choose` returns, wrap it: `labeled(value, text)`
+shows `text` but `choose` returns the underlying `value`. It is transparent to
+the type system (its static type is the wrapped value's type). This is how a
+rank choice shows "Jack" yet returns the number `11`, and how the decline button
+can be renamed:
+
+```c
+var rank = choose(p, map(ranks, r => labeled(r, rankName(r))), "Ask which rank?");
+// rank : num   (UI showed "Jack", "Queen", …)
+choose(p, concat(cards(hand[p]), [labeled(null, "Stop")]), "Play, or stop");
+```
+
+`rankName(n)` / `suitName(n)` give the display name of a bare rank/suit number.
+
+Because every branch point is an explicit, enumerated choice, the same game is
+directly usable as a turn-based multiplayer protocol and as an ML environment: at
+each step the engine yields `{ player, observation, options }` and resumes with
+the chosen value. A choice with a single legal option is auto-resolved.
+
+> **Note.** Range and multi-select choices fold into the same primitive: a
+> numeric pick is `choose(who, range(lo, hi), prompt)`, and selecting a subset is
+> `choose` over a list whose options are the candidate subsets (each a list).
 
 A player only ever sees an observation consistent with zone visibility (§3): the
 contents of zones they cannot see are replaced by face-down placeholders.
@@ -256,7 +289,16 @@ ranksOf(list)   suitsOf(list)        // unique ranks/suits present, sorted
 sameRank(list)  sameSuit(list)       // bool: all share rank / suit
 isRun(list, wrap?)                   // contiguous ranks (wrap at Ace if wrap)
 valueOf(card)   handValue(list)      // sum of .value
+rankName(n)     suitName(n)          // display name of a bare rank/suit number
 playersWithMax(key)  playersWithMin(key)
+```
+
+**Decisions**
+
+```
+choose(who, options, prompt)         // the sole decision primitive (see §6)
+labeled(value, text)                  // an option that displays as `text` but
+                                      //   resolves to `value`
 ```
 
 **Misc**

@@ -54,11 +54,13 @@ game "The Wall" {
                 if (size(hand[p]) == 0 || played >= 3) { break; }
                 var canStop = size(hand[p]) <= 7 && !(isEmpty(stock) && played == 0);
                 if (canStop) {
-                    var card = chooseMaybe(p, cards(hand[p]), "Play a card, or stop for the turn");
+                    // null is the decline option; labeled() names its button "Stop"
+                    var card = choose(p, concat(cards(hand[p]), [labeled(null, "Stop")]),
+                                      "Play a card, or stop for the turn");
                     if (card == null) { break; }
                     playCard(p, card);
                 } else {
-                    playCard(p, chooseCard(p, cards(hand[p]), "Play a card"));
+                    playCard(p, choose(p, cards(hand[p]), "Play a card"));
                 }
                 played = played + 1;
             }
@@ -73,7 +75,7 @@ game "The Wall" {
         if (card.suit == Diamonds) { move(card, diamonds[p]); }
         else if (card.suit == Hearts) { move(card, wall[p]); }
         else {
-            var target = choosePlayer(p, others(p), "Attack whom?");
+            var target = choose(p, others(p), "Attack whom?");
             if (card.suit == Spades) {
                 // steal diamonds summing to >= value
                 move(surrenderSet(diamonds[target], card.value), diamonds[p]);

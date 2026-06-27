@@ -5,15 +5,34 @@
 // and picks one. Features are intentionally game-agnostic (they read the generic
 // observation), so one model architecture works across every ♠# game.
 
-import { Card, Player } from "../../core/src/index.ts";
+import { Card, Player, unwrap } from "../../core/src/index.ts";
 import type { CSValue, ChoiceRequest, Observation } from "../../core/src/index.ts";
 
 // ---- fixed feature layout ----
-// kind one-hot (8) | card features (8) | player features (2) | scalar (2)
+// value-kind one-hot (8) | card features (8) | player features (2) | scalar (2)
 // | context (5) | bias (1)
-const KINDS = ["player", "card", "cards", "rank", "suit", "option", "number", "boolean"] as const;
+//
+// There is no per-call "kind" anymore: every decision is a `choose` over a list
+// of options, and we featurize each option from its own runtime value. The
+// one-hot below classifies that value (`labeled` wrappers are stripped first).
+const VALUE_KINDS = [
+  "player", "card", "list", "number", "boolean", "string", "none", "other",
+] as const;
+type ValueKind = (typeof VALUE_KINDS)[number];
+
+function valueKind(option: CSValue): ValueKind {
+  if (option === null) return "none";
+  if (option instanceof Card) return "card";
+  if (option instanceof Player) return "player";
+  if (Array.isArray(option)) return "list";
+  if (typeof option === "number") return "number";
+  if (typeof option === "boolean") return "boolean";
+  if (typeof option === "string") return "string";
+  return "other";
+}
+
 export const FEATURE_NAMES: string[] = [
-  ...KINDS.map((k) => `kind:${k}`),
+  ...VALUE_KINDS.map((k) => `vk:${k}`),
   "card:rank", "card:value", "card:isAce", "card:isFace", "card:suitC", "card:suitD", "card:suitH", "card:suitS",
   "player:visibleCards", "player:active",
   "scalar:num", "scalar:bool",
@@ -21,9 +40,6 @@ export const FEATURE_NAMES: string[] = [
   "bias",
 ];
 export const DIM = FEATURE_NAMES.length;
-
-// kinds the ML controller scores directly (option is indexable in req.options)
-export const SCORABLE = new Set(["player", "card", "rank", "suit", "option", "boolean"]);
 
 interface Context {
   myHandSize: number;
@@ -71,19 +87,19 @@ function visibleCardsOf(obs: Observation, playerId: number): number {
 }
 
 export function featurizeOption(
-  option: CSValue,
+  rawOption: CSValue,
   ctx: Context,
   obs: Observation,
-  kind: ChoiceRequest["kind"],
-  req: ChoiceRequest,
 ): number[] {
+  // a `labeled(...)` option is scored on the value it wraps, not its label
+  const option = unwrap(rawOption);
   const f = new Array(DIM).fill(0);
   let i = 0;
 
-  // kind one-hot
-  const ki = KINDS.indexOf(kind as (typeof KINDS)[number]);
+  // value-kind one-hot
+  const ki = VALUE_KINDS.indexOf(valueKind(option));
   if (ki >= 0) f[i + ki] = 1;
-  i += KINDS.length;
+  i += VALUE_KINDS.length;
 
   // card features
   if (option instanceof Card) {
@@ -102,12 +118,8 @@ export function featurizeOption(
   }
   i += 2;
 
-  // scalar features (rank/suit/number are plain numbers; boolean is true/false)
-  if (typeof option === "number") {
-    const lo = kind === "number" ? (req.options[0] as number) : 0;
-    const hi = kind === "number" ? (req.options[1] as number) : 13;
-    f[i + 0] = hi > lo ? (option - lo) / (hi - lo) : option / 13;
-  }
+  // scalar features (a bare number option — e.g. a rank; boolean is true/false)
+  if (typeof option === "number") f[i + 0] = option / 13;
   if (typeof option === "boolean") f[i + 1] = option ? 1 : 0;
   i += 2;
 
@@ -123,10 +135,9 @@ export function featurizeOption(
   return f;
 }
 
-// One feature row per legal option (only meaningful for SCORABLE kinds). When
-// the request allows declining, a trailing "none" row is appended.
+// One feature row per legal option (including any `null` decline option, which
+// the game lists explicitly). Row index i corresponds to req.options[i].
 export function featurizeOptions(req: ChoiceRequest, obs: Observation): number[][] {
   const ctx = context(obs, req);
-  const opts = req.allowNone ? [...req.options, null] : req.options;
-  return opts.map((o) => featurizeOption(o, ctx, obs, req.kind, req));
+  return req.options.map((o) => featurizeOption(o, ctx, obs));
 }

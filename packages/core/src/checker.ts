@@ -567,27 +567,23 @@ fixed("valueOf", [T.card], T.num);
 fixed("handValue", [T.list(T.card)], T.num);
 fixed("playersWithMax", [T.fun([T.player], T.num)], T.list(T.player));
 fixed("playersWithMin", [T.fun([T.player], T.num)], T.list(T.player));
-// decisions
-fixed("choosePlayer", [T.player, T.list(T.player), T.str], T.player, 2);
-fixed("chooseCard", [T.player, T.list(T.card), T.str], T.card, 2);
-fixed("chooseRank", [T.player, T.list(T.num), T.str], T.num, 2);
-fixed("chooseSuit", [T.player, T.list(T.num), T.str], T.num, 2);
-fixed("chooseCards", [T.player, T.list(T.card), T.num, T.num, T.str], T.list(T.card), 2);
-fixed("chooseNumber", [T.player, T.num, T.num, T.str], T.num, 3);
-fixed("chooseBool", [T.player, T.str], T.bool, 1);
-custom("chooseOption", (c, call) => {
+// decisions — the single choice primitive: pick one of `options`, returning its
+// element type. Decline is modelled by including `null` among the options.
+custom("choose", (c, call) => {
   c.inferArg(call, 0, T.player);
   const opts = c.inferArg(call, 1);
   if (call.args.length > 2) c.inferArg(call, 2, T.str);
   return elemOf(opts);
 });
-// choose an option or decline; returns the element type (null is assignable)
-custom("chooseMaybe", (c, call) => {
-  c.inferArg(call, 0, T.player);
-  const opts = c.inferArg(call, 1);
-  if (call.args.length > 2) c.inferArg(call, 2, T.str);
-  return elemOf(opts);
+// labeled(value, text): a display wrapper that is transparent to the type
+// system — its static type is the wrapped value's type.
+custom("labeled", (c, call) => {
+  const v = c.inferArg(call, 0);
+  if (call.args.length > 1) c.inferArg(call, 1, T.str);
+  return v;
 });
+fixed("rankName", [T.num], T.str);
+fixed("suitName", [T.num], T.str);
 // misc
 fixed("log", [T.any], T.void, 0, T.any);
 fixed("announce", [T.any], T.void, 0, T.any);

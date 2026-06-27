@@ -9,13 +9,17 @@ import {
   Card,
   Pile,
   Player,
+  Labeled,
   isCallable,
   isList,
   isZoneHandle,
   truthy,
   typeName,
   display,
+  unwrap,
   CSRecord,
+  RANK_NAMES,
+  SUIT_NAMES,
 } from "./values.ts";
 import type { Callable, CSValue, ZoneHandle } from "./values.ts";
 import type { GameState } from "./state.ts";
@@ -334,6 +338,10 @@ export function makeBuiltins(state: GameState): Map<string, Callable> {
   // =====================================================================
   pure("ranksOf", (args) => uniqueSortedNums(asCardList(args[0], "ranksOf").map((c) => c.rank)));
   pure("suitsOf", (args) => uniqueSortedNums(asCardList(args[0], "suitsOf").map((c) => c.suit)));
+  // display names for a bare rank (1..13) or suit (0..3) number — handy for
+  // labelling rank/suit `choose` options, e.g. `labeled(r, rankName(r))`.
+  pure("rankName", (args) => RANK_NAMES[num(args[0])] ?? String(num(args[0])));
+  pure("suitName", (args) => SUIT_NAMES[num(args[0])] ?? String(num(args[0])));
   pure("sameRank", (args) => {
     const cs = asCardList(args[0], "sameRank");
     return cs.length === 0 || cs.every((c) => c.rank === cs[0].rank);
@@ -403,74 +411,26 @@ export function makeBuiltins(state: GameState): Map<string, Callable> {
   // =====================================================================
   // Decisions (yield ChoiceRequest)
   // =====================================================================
-  const choose = (kind: ChoiceRequest["kind"]) =>
-    function* (args: CSValue[]): Eval<CSValue> {
-      const who = asPlayer(args[0], "choose");
-      const options = asList(args[1], "choose");
-      const prompt = args.length > 2 ? String(args[2]) : "";
-      const req: ChoiceRequest = { kind, player: who, prompt, options };
-      const answer = (yield req) as CSValue;
-      if (!options.some((o) => sameValue(o, answer))) {
-        throw new RuntimeError(`controller chose an illegal ${kind}: ${display(answer)}`);
-      }
-      return answer;
-    };
-  def("choosePlayer", choose("player"));
-  def("chooseCard", choose("card"));
-  // like chooseCard/chooseOption, but the player may also decline (returns null).
-  // Lets a turn-ending "stop"/"pass" be one decision instead of a separate bool.
-  def("chooseMaybe", function* (args) {
-    const who = asPlayer(args[0], "chooseMaybe");
-    const options = asList(args[1], "chooseMaybe");
+  // The single decision primitive: the acting player picks one of `options`.
+  // Any displayable value may be an option — a card, a player, a number, a bool,
+  // a list (e.g. a meld), a string, a `labeled(...)` value, or `null` (which the
+  // UI offers as a "None"/decline button). Returns the chosen option, with any
+  // `labeled` wrapper stripped, so game code sees the underlying value.
+  def("choose", function* (args) {
+    const who = asPlayer(args[0], "choose");
+    const options = asList(args[1], "choose");
     const prompt = args.length > 2 ? String(args[2]) : "";
-    const req: ChoiceRequest = { kind: "option", player: who, prompt, options, allowNone: true };
+    const req: ChoiceRequest = { player: who, prompt, options };
     const answer = (yield req) as CSValue;
-    if (answer === null) return null;
     if (!options.some((o) => sameValue(o, answer))) {
       throw new RuntimeError(`controller chose an illegal option: ${display(answer)}`);
     }
-    return answer;
+    return unwrap(answer);
   });
-  def("chooseRank", choose("rank"));
-  def("chooseSuit", choose("suit"));
-  def("chooseOption", choose("option"));
-  def("chooseCards", function* (args) {
-    const who = asPlayer(args[0], "chooseCards");
-    const options = asList(args[1], "chooseCards");
-    const min = args.length > 2 ? num(args[2]) : 0;
-    const max = args.length > 3 ? num(args[3]) : options.length;
-    const prompt = args.length > 4 ? String(args[4]) : "";
-    const req: ChoiceRequest = { kind: "cards", player: who, prompt, options, min, max };
-    const answer = (yield req) as CSValue;
-    const chosen = asList(answer, "chooseCards");
-    if (chosen.length < min || chosen.length > max) {
-      throw new RuntimeError(`controller chose ${chosen.length} cards, need ${min}..${max}`);
-    }
-    for (const c of chosen) {
-      if (!options.some((o) => sameValue(o, c))) {
-        throw new RuntimeError(`controller chose an illegal card: ${display(c)}`);
-      }
-    }
-    return chosen;
-  });
-  def("chooseNumber", function* (args) {
-    const who = asPlayer(args[0], "chooseNumber");
-    const lo = num(args[1]);
-    const hi = num(args[2]);
-    const prompt = args.length > 3 ? String(args[3]) : "";
-    const req: ChoiceRequest = { kind: "number", player: who, prompt, options: [lo, hi] };
-    const answer = (yield req) as CSValue;
-    const v = num(answer);
-    if (v < lo || v > hi) throw new RuntimeError(`number ${v} out of range ${lo}..${hi}`);
-    return v;
-  });
-  def("chooseBool", function* (args) {
-    const who = asPlayer(args[0], "chooseBool");
-    const prompt = args.length > 1 ? String(args[1]) : "";
-    const req: ChoiceRequest = { kind: "boolean", player: who, prompt, options: [true, false] };
-    const answer = (yield req) as CSValue;
-    return truthy(answer);
-  });
+  // Pair a value with a display string for a `choose` option. `choose` returns
+  // the underlying value, so e.g. `labeled(r, rankName(r))` lets a rank choice
+  // show "Jack" while still returning the number 11.
+  pure("labeled", (args) => new Labeled(args[0], String(args[1])));
 
   // =====================================================================
   // Misc
@@ -545,9 +505,14 @@ function num(v: CSValue): number {
   return v;
 }
 function sameValue(a: CSValue, b: CSValue): boolean {
+  a = unwrap(a);
+  b = unwrap(b);
   if (a === b) return true;
   if (a instanceof Card && b instanceof Card) return a.id === b.id;
   if (a instanceof Player && b instanceof Player) return a.id === b.id;
+  if (Array.isArray(a) && Array.isArray(b)) {
+    return a.length === b.length && a.every((x, i) => sameValue(x, b[i]));
+  }
   return false;
 }
 function toRanks(v: CSValue): number[] {

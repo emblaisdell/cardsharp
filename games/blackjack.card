@@ -26,7 +26,7 @@ game "Blackjack" {
         for (p in players) {
             loop {
                 if (handScore(hand[p]) >= 21) break;
-                if (!chooseBool(p, "Hit?")) break;
+                if (!choose(p, [true, false], "Hit?")) break;
                 draw(stock, hand[p], 1);
             }
         }

@@ -48,7 +48,7 @@ game "Money Money Money" {
             var options = concat(findMelds(cards(hand[p])),
                                  map(cards(hand[p]), c => [c]));
             options = concat(options, [[]]);
-            var meld = chooseOption(p, options, "Play a meld? (empty = done)");
+            var meld = choose(p, options, "Play a meld? (empty = done)");
             if (count(meld) == 0) { break; }
             playMeld(p, meld);
         }

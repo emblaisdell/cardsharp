@@ -14,6 +14,7 @@ export type CSValue =
   | ZoneHandle
   | Callable
   | CSRecord
+  | Labeled
   | CSValue[];
 
 // ---------------------------------------------------------------------------
@@ -131,6 +132,36 @@ export class CSRecord {
 }
 
 // ---------------------------------------------------------------------------
+// Labeled values
+// ---------------------------------------------------------------------------
+
+// A value paired with a custom display string, used to control how an option
+// renders at a `choose` decision point without changing the value game code
+// receives. `labeled(11, "Jack")` displays as "Jack" but `choose` returns 11.
+// Transparent to the type system (its static type is the wrapped value's type)
+// and unwrapped by `choose` before the pick reaches game code.
+export class Labeled {
+  readonly value: CSValue;
+  readonly text: string;
+  constructor(value: CSValue, text: string) {
+    this.value = value;
+    this.text = text;
+  }
+  toString(): string {
+    return this.text;
+  }
+}
+
+export function isLabeled(v: CSValue): v is Labeled {
+  return v instanceof Labeled;
+}
+
+// Strip a Labeled wrapper (recursively), returning the underlying value.
+export function unwrap(v: CSValue): CSValue {
+  return v instanceof Labeled ? unwrap(v.value) : v;
+}
+
+// ---------------------------------------------------------------------------
 // Callables
 // ---------------------------------------------------------------------------
 
@@ -168,6 +199,7 @@ export function truthy(v: CSValue): boolean {
 
 export function typeName(v: CSValue): string {
   if (v === null) return "null";
+  if (v instanceof Labeled) return typeName(v.value);
   if (Array.isArray(v)) return "list";
   if (v instanceof Card) return "card";
   if (v instanceof Player) return "player";
@@ -177,8 +209,12 @@ export function typeName(v: CSValue): string {
   return typeof v;
 }
 
+// Human-readable rendering of a value. Used for the option labels shown at a
+// `choose` decision point (and for log/announce output): a Labeled shows its
+// text, and `null` shows as "None" (the decline option).
 export function display(v: CSValue): string {
-  if (v === null) return "null";
+  if (v === null) return "None";
+  if (v instanceof Labeled) return v.text;
   if (Array.isArray(v)) return "[" + v.map(display).join(", ") + "]";
   if (v instanceof Card) return v.label;
   if (v instanceof Player) return v.name;

@@ -18,7 +18,7 @@
 // determinize by resampling unseen cards; that needs state reconstruction the
 // black-box engine doesn't expose.)
 
-import { Interpreter, GameState, RNG, Card, Player } from "../../core/src/index.ts";
+import { Interpreter, GameState, RNG, Card, Player, unwrap } from "../../core/src/index.ts";
 import type {
   Controller,
   CSValue,
@@ -97,7 +97,7 @@ export class MctsController implements Controller {
     for (let s = 0; s < this.sims; s++) this.simulate(nodes, ourSeat, prefixLen, s);
 
     const root = nodes.get("");
-    const opts = withNone(req);
+    const opts = req.options;
     if (!root || root.children.size === 0) {
       return randomPick(req, new RNG((this.seed + prefixLen) >>> 0));
     }
@@ -134,7 +134,7 @@ export class MctsController implements Controller {
         node = { visits: 0, children: new Map() };
         nodes.set(ps, node);
       }
-      const opts = withNone(req);
+      const opts = req.options;
       const keys = opts.map(keyOf);
       const untried = keys.filter((k) => !node!.children.has(k));
 
@@ -240,7 +240,8 @@ function uctSelect(node: Node, keys: string[], c: number): string {
 }
 
 // ---- option <-> stable key ----
-function keyOf(o: CSValue): string {
+function keyOf(raw: CSValue): string {
+  const o = unwrap(raw);
   if (o === null) return "_";
   if (o instanceof Card) return "c" + o.id;
   if (o instanceof Player) return "p" + o.id;
@@ -248,10 +249,6 @@ function keyOf(o: CSValue): string {
   if (typeof o === "number") return "n" + o;
   if (typeof o === "boolean") return o ? "bT" : "bF";
   return "s" + String(o);
-}
-
-function withNone(req: ChoiceRequest): CSValue[] {
-  return req.allowNone ? [...req.options, null] : req.options;
 }
 
 function optionForKey(key: string, opts: CSValue[]): CSValue {
@@ -274,25 +271,6 @@ function findByKey(options: CSValue[], o: CSValue): CSValue {
 
 // ---- random rollout policy ----
 function randomPick(req: ChoiceRequest, rng: RNG): CSValue {
-  switch (req.kind) {
-    case "number": {
-      const [lo, hi] = req.options as [number, number];
-      return lo + rng.int(hi - lo + 1);
-    }
-    case "boolean":
-      return rng.next() < 0.5;
-    case "cards": {
-      const min = req.min ?? 0;
-      const max = Math.min(req.max ?? req.options.length, req.options.length);
-      const k = min + rng.int(max - min + 1);
-      const pool = [...req.options];
-      rng.shuffle(pool);
-      return pool.slice(0, k);
-    }
-    default: {
-      const pool = req.allowNone ? [...req.options, null] : req.options;
-      if (pool.length === 0) return null;
-      return pool[rng.int(pool.length)];
-    }
-  }
+  if (req.options.length === 0) return null;
+  return req.options[rng.int(req.options.length)];
 }

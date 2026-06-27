@@ -45,7 +45,7 @@ game "Thirty-One" {
         loop {
             var p = current;
 
-            if (knockedBy == -1 && chooseBool(p, "Knock?")) {
+            if (knockedBy == -1 && choose(p, [true, false], "Knock?")) {
                 knockedBy = p.id;
                 finalTurns = count(activePlayers) - 1;
                 endTurn();
@@ -68,14 +68,14 @@ game "Thirty-One" {
 
     function takeTurn(p) {
         var fromDiscard = false;
-        if (size(discard) > 0) { fromDiscard = chooseBool(p, "Take the discard?"); }
+        if (size(discard) > 0) { fromDiscard = choose(p, [true, false], "Take the discard?"); }
         if (fromDiscard) {
             move(top(discard, 1), hand[p]);
         } else {
             if (size(stock) == 0) { move(cards(discard), stock); shuffle(stock); }
             move(top(stock, 1), hand[p]);
         }
-        move(chooseCard(p, cards(hand[p]), "Discard which?"), discard);
+        move(choose(p, cards(hand[p]), "Discard which?"), discard);
     }
 
     function showdown(thirtyOne) {

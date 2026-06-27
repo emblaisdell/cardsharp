@@ -64,7 +64,7 @@ When a player discards, the card is offered before the next player draws:
    at most **2 times**.
 
 Mechanically, after every discard the engine offers the top discard to each
-non-current player in turn order (a `chooseBool` "buy?" decision; in the final
+non-current player in turn order (a `choose(q, [true, false], …)` "buy?" decision; in the final
 round a player is skipped once they've used their 2 buys), then proceeds to the
 next turn.
 

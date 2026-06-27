@@ -3,7 +3,7 @@
 // the human is one Controller whose choose() returns a Promise resolved by a
 // button click, and the opponents are RandomController / MLController.
 
-import { compile, runGame, RandomController, Card, Player } from "./lib/core/index.js";
+import { compile, runGame, RandomController, Card, Player, Labeled } from "./lib/core/index.js";
 import { LinearPolicy, MLController } from "./lib/ml/index.js";
 
 const SUIT = ["♣", "♦", "♥", "♠"];
@@ -37,19 +37,10 @@ class HumanController {
   }
 }
 
-// If a choice request leaves the player no real decision, return its only
-// answer; otherwise return undefined so the controls are shown.
+// If a choice request leaves the player no real decision (a single legal
+// option), return that option; otherwise return undefined so the controls show.
 function forcedAnswer(req) {
-  if (req.kind === "cards") {
-    const n = req.options.length;
-    const min = req.min ?? 0;
-    const max = req.max ?? n;
-    // forced only when exactly one selection is valid (must take all, or none)
-    if (max === 0) return [];
-    if (min === n && max >= n) return req.options.slice();
-    return undefined;
-  }
-  if (!req.allowNone && req.options.length === 1) return req.options[0];
+  if (req.options.length === 1) return req.options[0];
   return undefined;
 }
 
@@ -197,38 +188,32 @@ function renderControls(req, obs) {
   controlsEl.innerHTML = "";
   const prompt = document.createElement("div");
   prompt.className = "prompt";
-  prompt.textContent = req.prompt || `Choose (${req.kind})`;
+  prompt.textContent = req.prompt || "Choose";
   controlsEl.appendChild(prompt);
 
   const opts = document.createElement("div");
   opts.className = "opts";
 
-  if (req.kind === "cards") {
-    renderCardsPicker(req, opts);
-    controlsEl.appendChild(opts);
-    return;
-  }
-
+  // Every option renders from its own runtime value; a `null` option is the
+  // decline button. The engine returns the chosen value (unwrapping `labeled`).
   req.options.forEach((o) => {
     const b = document.createElement("button");
-    b.appendChild(optionLabel(o, req.kind));
+    if (o === null) b.className = "pass";
+    b.appendChild(optionLabel(o));
     b.onclick = () => answer(o);
     opts.appendChild(b);
   });
-  // Option<...>-style choice: allow declining without a separate boolean
-  if (req.allowNone) {
-    const pass = document.createElement("button");
-    pass.textContent = "Stop / Pass";
-    pass.className = "pass";
-    pass.onclick = () => answer(null);
-    opts.appendChild(pass);
-  }
   controlsEl.appendChild(opts);
 }
 
-function optionLabel(o, kind) {
+function optionLabel(o) {
   const span = document.createElement("span");
-  if (o instanceof Card) {
+  if (o instanceof Labeled) {
+    // a value paired with an explicit display string
+    span.textContent = o.text;
+  } else if (o === null) {
+    span.textContent = "None";
+  } else if (o instanceof Card) {
     span.className = "meld";
     span.appendChild(cardEl(o, false));
   } else if (o instanceof Player) {
@@ -245,36 +230,10 @@ function optionLabel(o, kind) {
     }
   } else if (typeof o === "boolean") {
     span.textContent = o ? "Yes" : "No";
-  } else if (kind === "rank") {
-    span.textContent = RANK[o] ?? String(o);
-  } else if (kind === "suit") {
-    span.textContent = SUIT[o] ?? String(o);
   } else {
     span.textContent = String(o);
   }
   return span;
-}
-
-function renderCardsPicker(req, opts) {
-  const picked = new Set();
-  const min = req.min ?? 0;
-  const max = req.max ?? req.options.length;
-  req.options.forEach((c, i) => {
-    const b = document.createElement("button");
-    b.appendChild(optionLabel(c, "card"));
-    b.onclick = () => {
-      if (picked.has(i)) picked.delete(i);
-      else if (picked.size < max) picked.add(i);
-      b.style.outline = picked.has(i) ? "2px solid var(--accent)" : "";
-      submit.disabled = picked.size < min;
-    };
-    opts.appendChild(b);
-  });
-  const submit = document.createElement("button");
-  submit.textContent = `Play ${min}-${max}`;
-  submit.disabled = min > 0;
-  submit.onclick = () => answer([...picked].map((i) => req.options[i]));
-  opts.appendChild(submit);
 }
 
 function answer(value) {
@@ -295,27 +254,54 @@ function log(msg, cls) {
 
 function describeChoice(req, ans) {
   const who = req.player.name;
+  if (ans instanceof Labeled) return `${who}: ${ans.text}`;
   if (ans === null) return `${who}: stops`;
   if (ans instanceof Card) return `${who}: ${RANK[ans.rank]}${SUIT[ans.suit]}`;
   if (ans instanceof Player) return `${who} → ${ans.name}`;
   if (typeof ans === "boolean") return `${who}: ${req.prompt || "?"} ${ans ? "yes" : "no"}`;
   if (Array.isArray(ans)) return `${who}: ${ans.length ? ans.map((c) => RANK[c.rank] + SUIT[c.suit]).join(" ") : "done"}`;
-  if (req.kind === "rank") return `${who}: asks ${RANK[ans] ?? ans}`;
   return `${who}: ${ans}`;
 }
 
 // ---------- model loading ----------
-async function loadModel(file) {
+// Returns { policy, meta } for a game's trained ML model, or null if none exists.
+async function getModel(file) {
   if (modelCache.has(file)) return modelCache.get(file);
   const name = file.replace(/\.card$/, "");
+  let entry = null;
   try {
     const m = await fetch(`models/${name}.json`).then((r) => (r.ok ? r.json() : null));
-    const policy = m ? LinearPolicy.fromJSON(m) : null;
-    modelCache.set(file, policy);
-    return policy;
+    if (m && Array.isArray(m.weights)) entry = { policy: LinearPolicy.fromJSON(m), meta: m };
   } catch {
-    modelCache.set(file, null);
-    return null;
+    entry = null;
+  }
+  modelCache.set(file, entry);
+  return entry;
+}
+
+// Rebuild the Opponents dropdown to show exactly which bot types this game can be
+// played against: Random always; ML only when a model is trained for it. (MCTS
+// is a perfect-information benchmark baseline, not a fair playable bot, so it's
+// not offered here.)
+async function syncOpponents() {
+  const file = gameSel.value;
+  const prev = oppSel.value;
+  const model = await getModel(file);
+  oppSel.innerHTML = "";
+  oppSel.add(new Option("Random bots", "random"));
+  if (model) {
+    const g = (model.meta.trainedGames ?? 0).toLocaleString();
+    oppSel.add(new Option(`ML bot — linear policy (${g}-game model)`, "ml"));
+    oppSel.value = prev === "ml" ? "ml" : "random";
+    oppNote.textContent = `Playable here: Random ✓ · ML ✓ (trained). MCTS is benchmark-only.`;
+    oppNote.className = "opp-note ok";
+  } else {
+    const o = new Option("ML bot — not trained for this game", "ml");
+    o.disabled = true;
+    oppSel.add(o);
+    oppSel.value = "random";
+    oppNote.textContent = `Playable here: Random ✓ · ML ✗ (no model — run packages/ml/bench.mjs).`;
+    oppNote.className = "opp-note warn";
   }
 }
 

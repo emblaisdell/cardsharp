@@ -56,7 +56,7 @@ game "Crazy Bridge" {
             drawPhase(p);
             tryLayDown(p, con);
             if (size(hand[p]) > 0) {
-                move(chooseCard(p, cards(hand[p]), "Discard"), discard);
+                move(choose(p, cards(hand[p]), "Discard"), discard);
             }
 
             if (size(hand[p]) == 0 && laidDown[p.id]) {
@@ -82,7 +82,7 @@ game "Crazy Bridge" {
 
     function drawPhase(p) {
         if (size(stock) == 0) { reshuffle(); }
-        var fromDiscard = size(discard) > 0 ? chooseBool(p, "Take the discard?") : false;
+        var fromDiscard = size(discard) > 0 ? choose(p, [true, false], "Take the discard?") : false;
         if (fromDiscard) {
             move(top(discard, 1), hand[p]);
         } else if (size(stock) > 0) {
@@ -136,7 +136,7 @@ game "Crazy Bridge" {
         for (q in others(p)) {
             if (size(discard) == 0) { break; }
             var cap = round == 7 ? 2 : 999;
-            if (buys[q.id] < cap && chooseBool(q, "Buy the discard?")) {
+            if (buys[q.id] < cap && choose(q, [true, false], "Buy the discard?")) {
                 move(top(discard, 1), hand[q]);
                 if (size(stock) == 0) { reshuffle(); }
                 if (size(stock) > 0) { move(top(stock, 1), hand[q]); }   // penalty card

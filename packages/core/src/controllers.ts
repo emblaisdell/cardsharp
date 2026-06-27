@@ -1,7 +1,7 @@
 // Controllers answer ChoiceRequests. Humans, bots, and ML agents are all just
 // controllers — this is the single seam between the engine and a decision-maker.
 
-import { isList } from "./values.ts";
+import { display } from "./values.ts";
 import type { CSValue } from "./values.ts";
 import type { ChoiceRequest } from "./choice.ts";
 import type { Observation } from "./state.ts";
@@ -20,44 +20,15 @@ export class RandomController implements Controller {
   }
 
   choose(req: ChoiceRequest): CSValue {
-    switch (req.kind) {
-      case "number": {
-        const [lo, hi] = req.options as [number, number];
-        return lo + this.rng.int(hi - lo + 1);
-      }
-      case "boolean":
-        return this.rng.next() < 0.5;
-      case "cards": {
-        const min = req.min ?? 0;
-        const max = Math.min(req.max ?? req.options.length, req.options.length);
-        const k = min + this.rng.int(max - min + 1);
-        const pool = [...req.options];
-        this.rng.shuffle(pool);
-        return pool.slice(0, k);
-      }
-      default: {
-        // when declining is allowed, treat "none" as one more option
-        const pool = req.allowNone ? [...req.options, null] : req.options;
-        if (pool.length === 0) return null;
-        return pool[this.rng.int(pool.length)];
-      }
-    }
+    if (req.options.length === 0) return null;
+    return req.options[this.rng.int(req.options.length)];
   }
 }
 
 // Always picks the first legal option (handy for deterministic tests/replays).
 export class FirstController implements Controller {
   choose(req: ChoiceRequest): CSValue {
-    switch (req.kind) {
-      case "number":
-        return (req.options as number[])[0];
-      case "boolean":
-        return false;
-      case "cards":
-        return (req.options as CSValue[]).slice(0, req.min ?? 0);
-      default:
-        return req.options.length ? req.options[0] : null;
-    }
+    return req.options.length ? req.options[0] : null;
   }
 }
 
@@ -73,6 +44,6 @@ export class FnController implements Controller {
 }
 
 export function describeChoice(req: ChoiceRequest): string {
-  const opts = isList(req.options) ? req.options.length : 0;
-  return `${req.player.name} · ${req.kind} · ${opts} options${req.prompt ? ` · ${req.prompt}` : ""}`;
+  const opts = req.options.map(display).join(", ");
+  return `${req.player.name} · ${req.options.length} options [${opts}]${req.prompt ? ` · ${req.prompt}` : ""}`;
 }

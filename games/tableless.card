@@ -46,7 +46,7 @@ game "The Table-less Card Game" {
             var callers = [];
             for (q in activePlayers) {
                 var forced = size(stack[q]) == 0;
-                var calls  = forced ? true : chooseBool(q, "Call now?");
+                var calls  = forced ? true : choose(q, [true, false], "Call now?");
                 if (calls) { callers = concat(callers, [q]); }
             }
 

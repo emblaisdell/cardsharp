@@ -43,9 +43,10 @@ game "Go Fish" {
                 continue;
             }
 
-            var target = choosePlayer(current, targets, "Ask whom for cards?");
-            var rank   = chooseRank(current, ranksOf(cards(hand[current])),
-                                    "Ask for which rank?");
+            var target = choose(current, targets, "Ask whom for cards?");
+            var rank   = choose(current,
+                                map(ranksOf(cards(hand[current])), r => labeled(r, rankName(r))),
+                                "Ask for which rank?");
             var got    = filter(cards(hand[target]), c => c.rank == rank);
 
             if (count(got) > 0) {
