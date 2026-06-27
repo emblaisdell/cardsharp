@@ -170,5 +170,6 @@ game "Crazy Bridge" {
         move(cards(discard), stock);
     }
 
-    winners => playersWithMin(p => scores[p.id]);
+    // golf scoring: negate the penalty so higher is better (argmax = lowest total)
+    score p => -scores[p.id];
 }

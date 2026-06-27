@@ -3,7 +3,7 @@
 // Each decision point is (ChoiceRequest, Observation). We turn every legal
 // option into a fixed-length feature row φ(obs, option); the policy scores rows
 // and picks one. Features are intentionally game-agnostic (they read the generic
-// observation), so one model architecture works across every Card# game.
+// observation), so one model architecture works across every ♠# game.
 
 import { Card, Player } from "../../core/src/index.ts";
 import type { CSValue, ChoiceRequest, Observation } from "../../core/src/index.ts";

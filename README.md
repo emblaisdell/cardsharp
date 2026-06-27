@@ -1,17 +1,17 @@
-# Card# / CardSharp
+# ♠# / CardSharp
 
 **A domain-specific language for standard 52-card deck games**, with a portable
 interpreter, browser-based WebRTC multiplayer, and a lightweight classical-ML
 strategy learner.
 
-Card# (written `CardSharp` where `#` is awkward) lets you describe a card game —
+♠# (written `CardSharp` where `#` is awkward) lets you describe a card game —
 its zones, its turn flow, its legal moves, and its win conditions — in a compact
 C-styled language. One interpreter then runs that game anywhere: in a terminal,
 in the browser against friends over WebRTC, or inside a self-play loop that
 trains an agent to play it well.
 
 ```c
-// Go Fish, in Card#
+// Go Fish, in ♠#
 game "Go Fish" {
     players 2..6;
     deck    standard52;
@@ -95,7 +95,7 @@ fit together.
 cardsharp/
 ├── README.md
 ├── docs/
-│   ├── language-spec.md        # Card# grammar + builtin reference
+│   ├── language-spec.md        # ♠# grammar + builtin reference
 │   └── architecture.md         # how interpreter / net / ML connect
 ├── games/                      # game implementations (.card) + ruleset notes (.md)
 │   ├── gofish.card
@@ -111,7 +111,7 @@ cardsharp/
 │       ├── tableless.md
 │       └── thewall.md
 └── packages/
-    ├── core/                   # the Card# language (no deps, runs anywhere)
+    ├── core/                   # the ♠# language (no deps, runs anywhere)
     │   ├── src/lexer.ts
     │   ├── src/parser.ts
     │   ├── src/ast.ts

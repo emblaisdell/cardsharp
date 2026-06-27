@@ -97,5 +97,6 @@ game "The Table-less Card Game" {
         return max(map(cards(showing[q]), c => c.rank));
     }
 
-    winners => activePlayers;
+    // eliminated players have an empty deck (score 0); the survivor has cards.
+    score p => size(stack[p]);
 }

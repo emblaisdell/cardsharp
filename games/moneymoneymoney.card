@@ -78,5 +78,6 @@ game "Money Money Money" {
         shuffle(drawdeck);
     }
 
-    winners => activePlayers;
+    // eliminated (broke) players have an empty pile (score 0); the survivor wins.
+    score p => size(money[p]);
 }

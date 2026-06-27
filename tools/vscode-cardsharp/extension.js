@@ -1,7 +1,7 @@
-// Card# VSCode extension.
+// ♠# VSCode extension.
 //
 // Syntax highlighting is fully declarative (see syntaxes/ + the grammar).
-// This script adds *live diagnostics*: it runs the Card# static type checker
+// This script adds *live diagnostics*: it runs the ♠# static type checker
 // (via the repo's CLI `check` command) on open/save and surfaces type errors
 // inline — the same errors that would otherwise only appear at runtime.
 

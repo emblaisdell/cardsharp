@@ -1,4 +1,4 @@
-// Lexer for Card#.
+// Lexer for ♠#.
 
 export type TokenType = "number" | "string" | "ident" | "keyword" | "op" | "eof";
 

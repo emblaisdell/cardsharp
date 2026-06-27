@@ -1,6 +1,6 @@
 # @cardsharp/web — static browser client
 
-Play any Card# game in the browser against random or ML bots. **Everything runs
+Play any ♠# game in the browser against random or ML bots. **Everything runs
 client-side** — parsing, type-checking, the interpreter, and the ML policy. There
 is no server-side game logic; the included server only serves static files.
 

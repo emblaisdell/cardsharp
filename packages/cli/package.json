@@ -1,7 +1,7 @@
 {
   "name": "@cardsharp/cli",
   "version": "0.1.0",
-  "description": "Command-line runner for Card# games (simulate with bots, or play in the terminal).",
+  "description": "Command-line runner for ♠# games (simulate with bots, or play in the terminal).",
   "type": "module",
   "bin": {
     "cardsharp": "src/main.ts"

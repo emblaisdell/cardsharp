@@ -90,9 +90,10 @@ them.
 
 1. **Attack value = the played card's value** (face 10, Ace 11), same scale as
    the resources being surrendered.
-2. **Defender minimizes by choice:** the engine lets the defending controller
-   pick which qualifying set to give up; a bot gives the smallest set that meets
-   or exceeds the value (greedy), or everything if it can't reach the value.
+2. **Defender surrenders the cheapest legal set:** the engine automatically
+   gives up the qualifying set with the **smallest total value** (minimal
+   overflow) — so the defender never loses more than required — or everything if
+   the suit can't reach the attack value. This is computed exactly, not greedily.
 3. **Spades vs. a diamond-less player:** a spade simply steals nothing (there are
    no diamonds to take). Only the **club**-vs-wall-less special case redirects to
    diamonds, per the brief.

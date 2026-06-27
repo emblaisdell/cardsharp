@@ -1,7 +1,7 @@
 {
   "name": "@cardsharp/ml",
   "version": "0.1.0",
-  "description": "Lightweight classical-ML players for Card#: a linear softmax policy trained by self-play (REINFORCE) over hand-crafted features. Models are tiny JSON weight vectors, loadable in the browser.",
+  "description": "Lightweight classical-ML players for ♠#: a linear softmax policy trained by self-play (REINFORCE) over hand-crafted features. Models are tiny JSON weight vectors, loadable in the browser.",
   "type": "module",
   "main": "src/index.ts",
   "dependencies": {

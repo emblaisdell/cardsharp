@@ -1,7 +1,7 @@
 {
   "name": "@cardsharp/web",
   "version": "0.1.0",
-  "description": "Static browser client for Card#. The engine, type checker and ML players run entirely client-side; built with zero dependencies via Node's TypeScript type-stripping.",
+  "description": "Static browser client for ♠#. The engine, type checker and ML players run entirely client-side; built with zero dependencies via Node's TypeScript type-stripping.",
   "type": "module",
   "scripts": {
     "build": "node build.mjs",

@@ -82,6 +82,6 @@ game "Go Fish" {
         return size(pond) == 0 && all(players, p => size(hand[p]) == 0);
     }
 
-    score   p => count(cards(books[p])) / 4;   // number of completed books
-    winners => playersWithMax(p => score(p));
+    // higher is better; the engine's default winner rule is argmax(score)
+    score p => count(cards(books[p])) / 4;   // number of completed books
 }

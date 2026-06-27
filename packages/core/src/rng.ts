@@ -9,6 +9,19 @@ export class RNG {
     this.state = (seed >>> 0) || 0x9e3779b9;
   }
 
+  // exact snapshot/restore of the internal state, for cloning game state
+  snapshot(): number {
+    return this.state;
+  }
+  restore(s: number): void {
+    this.state = s | 0;
+  }
+  clone(): RNG {
+    const r = new RNG(0);
+    r.state = this.state;
+    return r;
+  }
+
   // returns a float in [0, 1)
   next(): number {
     this.state = (this.state + 0x6d2b79f5) | 0;

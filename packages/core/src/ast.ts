@@ -1,4 +1,4 @@
-// Abstract syntax tree for Card#.
+// Abstract syntax tree for ♠#.
 
 export interface Node {
   line: number;

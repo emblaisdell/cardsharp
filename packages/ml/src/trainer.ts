@@ -17,12 +17,15 @@ export interface TrainOptions {
   alpha?: number; // learning rate
   temperature?: number; // exploration temperature
   seed?: number;
+  maxMs?: number; // stop early once this much wall-time has elapsed
   log?: (msg: string) => void;
 }
 
 export interface TrainResult {
   policy: LinearPolicy;
   games: number;
+  decisions: number; // total policy decisions seen during training
+  ms: number; // wall-clock training time
 }
 
 export async function train(source: string, opts: TrainOptions = {}): Promise<TrainResult> {
@@ -36,8 +39,13 @@ export async function train(source: string, opts: TrainOptions = {}): Promise<Tr
 
   const policy = new LinearPolicy();
   let baseline = 0;
+  let decisions = 0;
+  const t0 = Date.now();
+  let played = 0;
 
   for (let g = 0; g < games; g++) {
+    if (opts.maxMs && Date.now() - t0 > opts.maxMs) break;
+    played = g + 1;
     const trajectories: Decision[][] = Array.from({ length: seats }, () => []);
     const controllers = Array.from(
       { length: seats },
@@ -53,6 +61,7 @@ export async function train(source: string, opts: TrainOptions = {}): Promise<Tr
       players: seats,
       seed: baseSeed + g,
       quiet: true,
+      onChoice: () => decisions++,
     });
 
     const rewards = rewardsFor(result, seats);
@@ -70,7 +79,7 @@ export async function train(source: string, opts: TrainOptions = {}): Promise<Tr
     }
   }
 
-  return { policy, games };
+  return { policy, games: played, decisions, ms: Date.now() - t0 };
 }
 
 // +1 for a winning seat, -1 otherwise (ties share the win equally as +1).

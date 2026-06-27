@@ -1,6 +1,6 @@
-// Runtime value types for Card#.
+// Runtime value types for ♠#.
 //
-// Card# values map onto JS values where natural (number, boolean, string, null,
+// ♠# values map onto JS values where natural (number, boolean, string, null,
 // arrays for lists) and onto small classes for the domain types (Card, Player,
 // Pile/zone handles) and callables.
 

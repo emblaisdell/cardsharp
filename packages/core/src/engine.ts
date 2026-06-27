@@ -1,4 +1,4 @@
-// High-level driver: parse a Card# program, build state, and run it to
+// High-level driver: parse a ♠# program, build state, and run it to
 // completion against a set of controllers. This is the loop the CLI, the
 // WebRTC peers, and the ML trainer all use.
 
@@ -21,6 +21,8 @@ export interface RunOptions {
   quiet?: boolean; // suppress log() output
   // called at every decision point (for transcripts / ML datasets)
   onChoice?: (req: ChoiceRequest, obs: Observation, answer: CSValue) => void;
+  // called for each announce() the game emits (round results, eliminations, …)
+  onEvent?: (msg: string) => void;
   maxSteps?: number; // safety valve against runaway games
 }
 
@@ -42,7 +44,7 @@ export interface CompileOptions {
   typecheck?: boolean; // default true — run the static type checker
 }
 
-// Parse and (by default) type-check a Card# program. Throws ParseError on a
+// Parse and (by default) type-check a ♠# program. Throws ParseError on a
 // syntax error and TypeCheckError if static type checking finds any problems.
 export function compile(source: string, opts: CompileOptions = {}): A.Program {
   const program = parse(source);
@@ -74,6 +76,7 @@ export async function runGame(
 
   const state = new GameState(np, opts.seed ?? 1, opts.names);
   if (opts.quiet) state.globals.set("__quiet", true);
+  if (opts.onEvent) state.onAnnounce = opts.onEvent;
 
   const getController =
     typeof controllers === "function" ? controllers : (seat: number) => controllers[seat];

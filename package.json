@@ -2,7 +2,7 @@
   "name": "cardsharp",
   "version": "0.1.0",
   "private": true,
-  "description": "Card# / CardSharp — a DSL for standard-deck card games, with WebRTC multiplayer and classical-ML strategy learning.",
+  "description": "♠# / CardSharp — a DSL for standard-deck card games, with WebRTC multiplayer and classical-ML strategy learning.",
   "type": "module",
   "workspaces": [
     "packages/*"

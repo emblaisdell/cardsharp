@@ -1,7 +1,7 @@
 {
   "name": "cardsharp",
-  "displayName": "Card# / CardSharp",
-  "description": "Syntax highlighting and live type-checking for the Card# card-game DSL.",
+  "displayName": "♠# / CardSharp",
+  "description": "Syntax highlighting and live type-checking for the ♠# card-game DSL.",
   "version": "0.1.0",
   "publisher": "cardsharp",
   "engines": {
@@ -14,7 +14,7 @@
     "languages": [
       {
         "id": "cardsharp",
-        "aliases": ["Card#", "CardSharp", "cardsharp"],
+        "aliases": ["♠#", "CardSharp", "cardsharp"],
         "extensions": [".card"],
         "configuration": "./language-configuration.json"
       }
@@ -27,12 +27,12 @@
       }
     ],
     "configuration": {
-      "title": "Card#",
+      "title": "♠#",
       "properties": {
         "cardsharp.typeCheck": {
           "type": "boolean",
           "default": true,
-          "description": "Run the Card# static type checker on open/save and show diagnostics."
+          "description": "Run the ♠# static type checker on open/save and show diagnostics."
         },
         "cardsharp.repoPath": {
           "type": "string",

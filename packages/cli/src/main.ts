@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Card# command-line runner.
+// ♠# command-line runner.
 //
 //   node packages/cli/src/main.ts run games/gofish.card --players 3 --seed 1
 //   node packages/cli/src/main.ts run games/gofish.card --games 200 --quiet
@@ -121,7 +121,7 @@ function cmdCheck(file: string): void {
 async function main(): Promise<void> {
   const [cmd, file, ...rest] = process.argv.slice(2);
   if (!cmd || cmd === "help" || cmd === "--help") {
-    console.log(`cardsharp — Card# runner
+    console.log(`cardsharp — ♠# runner
 
   run <file.card> [--players N] [--seed S] [--games G] [--quiet] [--controller random|first]
   check  <file.card>     type-check without running

@@ -89,17 +89,39 @@ game "The Wall" {
         }
     }
 
-    // smallest-value cards that sum to >= value; or everything if unreachable
+    // No-Change Rule: surrender the CHEAPEST legal set — a subset whose values
+    // sum to >= value with the smallest possible total (minimal overflow), so the
+    // defender never gives more than they must. If the pile can't reach the value
+    // it surrenders everything (and no more). This is exact, not greedy: the
+    // attack value never exceeds a single card's max, so capping the sums we track
+    // keeps the reachable-set search tiny.
     function surrenderSet(pile, value) {
-        var taken = [];
-        var total = 0;
-        for (c in sortBy(cards(pile), x => x.value)) {
-            if (total >= value) { break; }
-            taken = concat(taken, [c]);
-            total = total + c.value;
+        var all = cards(pile);
+        if (isEmpty(pile)) { return []; }
+        if (sum(all, c => c.value) < value) { return all; }   // can't reach -> give all
+
+        // The cheapest qualifying set never sums above value + the largest single
+        // card, so we ignore any partial sum past that bound.
+        var cap = value + maxBy(all, c => c.value).value;
+
+        // reach = reachable subset-sums, each { s: total, set: cards }; we keep one
+        // witnessing set per distinct sum (any will do — we only minimize the sum).
+        var reach = [{ s: 0, set: [] }];
+        for (c in all) {
+            var grown = reach;
+            for (st in reach) {
+                var ns = st.s + c.value;
+                if (ns <= cap && none(grown, g => g.s == ns)) {
+                    grown = concat(grown, [{ s: ns, set: concat(st.set, [c]) }]);
+                }
+            }
+            reach = grown;
         }
-        return taken;
+
+        // smallest reachable total that still meets the attack
+        return minBy(filter(reach, st => st.s >= value), st => st.s).set;
     }
 
-    winners => playersWithMax(p => sum(cards(diamonds[p]), c => c.value));
+    // most diamonds (by value) wins
+    score p => sum(cards(diamonds[p]), c => c.value);
 }

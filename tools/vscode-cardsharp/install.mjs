@@ -1,4 +1,4 @@
-// Install the Card# VSCode extension by symlinking this folder into the user's
+// Install the ♠# VSCode extension by symlinking this folder into the user's
 // VSCode extensions directory. Re-runnable (idempotent).
 
 import { existsSync, mkdirSync, symlinkSync, rmSync, lstatSync } from "node:fs";
@@ -23,7 +23,7 @@ const target = join(extDir, "cardsharp.cardsharp-0.1.0");
 if (existsSync(target) || isSymlink(target)) rmSync(target, { recursive: true, force: true });
 symlinkSync(here, target, "dir");
 
-console.log(`Installed Card# extension:`);
+console.log(`Installed ♠# extension:`);
 console.log(`  ${target}  ->  ${here}`);
 console.log(`\nReload VSCode (Command Palette: "Developer: Reload Window") and open a .card file.`);
 

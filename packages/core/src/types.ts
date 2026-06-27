@@ -1,6 +1,6 @@
-// The Card# type system.
+// The ♠# type system.
 //
-// Card# is gradually typed: expressions whose type is known are checked
+// ♠# is gradually typed: expressions whose type is known are checked
 // strictly, while `any` (unknowable statically — e.g. an untyped function
 // parameter) is compatible with everything. This catches real mistakes
 // (calling a non-function, `current.rank`, `size(5)`, arithmetic on a list)

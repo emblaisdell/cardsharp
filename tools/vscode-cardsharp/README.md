@@ -1,6 +1,6 @@
-# Card# for VSCode
+# ♠# for VSCode
 
-Syntax highlighting + live type-checking for [Card# / CardSharp](../../README.md)
+Syntax highlighting + live type-checking for [♠# / CardSharp](../../README.md)
 `.card` files.
 
 ## Features
@@ -8,7 +8,7 @@ Syntax highlighting + live type-checking for [Card# / CardSharp](../../README.md
 - **Syntax highlighting** — keywords, sections (`game`/`zone`/`flow`/…),
   builtins, card constants (`Ace`, `King`, `Hearts`, …) and unicode suit glyphs
   (`♣ ♦ ♥ ♠`), strings, numbers, comments, operators.
-- **Live diagnostics** — runs the Card# static type checker on open/save and
+- **Live diagnostics** — runs the ♠# static type checker on open/save and
   underlines type errors inline (calling a non-function, `current.rank`,
   wrong argument types, etc.). Requires the file to live inside a CardSharp
   checkout (it shells out to `packages/cli/src/main.ts check`). Configure the

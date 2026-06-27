@@ -110,5 +110,6 @@ game "Thirty-One" {
         move(cards(discard), stock);
     }
 
-    winners => activePlayers;
+    // eliminated players are out of lives (score 0); the survivor has lives left.
+    score p => lives[p.id];
 }

@@ -1,4 +1,4 @@
-// Minimal static file server for the Card# web client (no dependencies).
+// Minimal static file server for the ♠# web client (no dependencies).
 // Usage: node packages/web/serve.mjs [port]
 
 import { createServer } from "node:http";
@@ -36,6 +36,6 @@ createServer(async (req, res) => {
     res.writeHead(404).end("not found");
   }
 }).listen(port, () => {
-  console.log(`Card# web client on http://localhost:${port}`);
+  console.log(`♠# web client on http://localhost:${port}`);
   console.log(`(run \`node packages/web/build.mjs\` first if you changed core/ml)`);
 });

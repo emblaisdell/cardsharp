@@ -1,4 +1,4 @@
-// Generator-based tree-walking interpreter for Card#.
+// Generator-based tree-walking interpreter for ♠#.
 //
 // Evaluation methods are generators so that `choose*` builtins can `yield` a
 // ChoiceRequest and the whole call stack suspends until a controller answers.
@@ -69,6 +69,7 @@ export class Interpreter {
   private global = new Env();
   private dynamic = new Map<string, () => CSValue>();
   private winnersExpr: A.Expr | null = null;
+  private hasScore = false;
 
   constructor(program: A.Program, state: GameState) {
     this.program = program;
@@ -119,6 +120,7 @@ export class Interpreter {
         this.global.define(s.name, this.makeFunction(s.name, s.params, s.body, this.global));
       } else if (s.type === "ScoreDecl") {
         this.global.define("score", this.makeExprFunction("score", [s.param], s.expr, this.global));
+        this.hasScore = true;
       } else if (s.type === "WinnersDecl") {
         this.winnersExpr = s.expr;
       }
@@ -153,9 +155,15 @@ export class Interpreter {
     }
     this.state.ended = true;
 
+    // Winner resolution, in priority order:
+    //   1. an explicit declareWinner(s)() call made during play
+    //   2. an explicit `winners => …` declaration
+    //   3. the default rule: the player(s) with the highest `score` (ties incl.)
     if (!this.state.declaredWinners && this.winnersExpr) {
       const w = yield* this.evalExpr(this.winnersExpr, new Env(this.global));
       this.state.declaredWinners = this.toPlayerList(w);
+    } else if (!this.state.declaredWinners && this.hasScore) {
+      this.state.declaredWinners = this.winnersByScore();
     }
 
     // expose game-level variables on the state so external tools (tests, UI,
@@ -173,6 +181,32 @@ export class Interpreter {
     if (v instanceof Player) return [v];
     if (isList(v)) return v.filter((x): x is Player => x instanceof Player);
     return [];
+  }
+
+  // True if the game declares a `score`. Lets the host (e.g. tree search) know a
+  // value heuristic is available.
+  get scored(): boolean {
+    return this.hasScore;
+  }
+
+  // Evaluate the game's `score(player)` synchronously. Score is higher-is-better
+  // (may be negative) and is used both as the default winner rule and as a value
+  // heuristic for search. Returns 0 if the game declares no score.
+  scoreOf(p: Player): number {
+    const fn = this.global.lookup("score");
+    if (fn === NOT_FOUND || !isCallable(fn)) return 0;
+    const gen = fn.invoke([p]);
+    let r = gen.next();
+    while (!r.done) r = gen.next(null); // score must not make choices
+    return typeof r.value === "number" ? r.value : 0;
+  }
+
+  private winnersByScore(): Player[] {
+    const players = this.state.players;
+    if (players.length === 0) return [];
+    const scores = players.map((p) => this.scoreOf(p));
+    const best = Math.max(...scores);
+    return players.filter((_, i) => scores[i] === best);
   }
 
   // ---- callables ----

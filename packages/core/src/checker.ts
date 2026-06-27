@@ -1,4 +1,4 @@
-// Static type checker for Card#. Produces diagnostics (with line numbers) that
+// Static type checker for ♠#. Produces diagnostics (with line numbers) that
 // the compiler reports before a game ever runs.
 
 import type * as A from "./ast.ts";
@@ -590,6 +590,7 @@ custom("chooseMaybe", (c, call) => {
 });
 // misc
 fixed("log", [T.any], T.void, 0, T.any);
+fixed("announce", [T.any], T.void, 0, T.any);
 fixed("rng", [], T.num);
 fixed("abs", [T.num], T.num);
 fixed("floor", [T.num], T.num);

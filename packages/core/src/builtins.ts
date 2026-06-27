@@ -1,4 +1,4 @@
-// The Card# standard library: domain builtins for players, zones, movement,
+// The ♠# standard library: domain builtins for players, zones, movement,
 // collections, card logic, and decisions.
 //
 // Every builtin is a generator so it can (a) call user lambdas via `yield*` and
@@ -480,6 +480,14 @@ export function makeBuiltins(state: GameState): Map<string, Callable> {
       // eslint-disable-next-line no-console
       console.log("[game]", ...args.map(display));
     }
+    return null;
+  });
+  // player-facing narration (round results, eliminations, …). Routed to the
+  // host's onEvent sink if present (the web move log), else printed by the CLI.
+  pure("announce", (args) => {
+    const msg = args.map(display).join(" ");
+    if (state.onAnnounce) state.onAnnounce(msg);
+    else if (state.globals.get("__quiet") !== true) console.log("»", msg);
     return null;
   });
   pure("rng", () => state.rng.next());

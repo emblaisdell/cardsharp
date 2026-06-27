@@ -1,4 +1,4 @@
-// Recursive-descent parser for Card#.
+// Recursive-descent parser for ♠#.
 
 import { lex } from "./lexer.ts";
 import type { Token, TokenType } from "./lexer.ts";

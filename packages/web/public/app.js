@@ -1,4 +1,4 @@
-// Static browser client for Card#. The engine, type checker and ML players all
+// Static browser client for ♠#. The engine, type checker and ML players all
 // run here in the browser; this file just wires the choice model to the DOM:
 // the human is one Controller whose choose() returns a Promise resolved by a
 // button click, and the opponents are RandomController / MLController.
@@ -27,11 +27,30 @@ const expanded = new Set(); // zone keys the user has expanded
 class HumanController {
   choose(req, obs) {
     renderBoard(obs);
+    // a decision with only one possible answer is made for the player
+    const forced = forcedAnswer(req);
+    if (forced !== undefined) return Promise.resolve(forced);
     return new Promise((resolve) => {
       humanResolve = resolve;
       renderControls(req, obs);
     });
   }
+}
+
+// If a choice request leaves the player no real decision, return its only
+// answer; otherwise return undefined so the controls are shown.
+function forcedAnswer(req) {
+  if (req.kind === "cards") {
+    const n = req.options.length;
+    const min = req.min ?? 0;
+    const max = req.max ?? n;
+    // forced only when exactly one selection is valid (must take all, or none)
+    if (max === 0) return [];
+    if (min === n && max >= n) return req.options.slice();
+    return undefined;
+  }
+  if (!req.allowNone && req.options.length === 1) return req.options[0];
+  return undefined;
 }
 
 // ---------- rendering ----------
@@ -270,8 +289,8 @@ function log(msg, cls) {
   const li = document.createElement("li");
   if (cls) li.className = cls;
   li.textContent = msg;
-  logEl.appendChild(li);
-  logEl.scrollTop = logEl.scrollHeight;
+  logEl.insertBefore(li, logEl.firstChild);
+  logEl.scrollTop = 0;
 }
 
 function describeChoice(req, ans) {
@@ -335,6 +354,7 @@ async function startGame() {
       seed: Date.now() % 100000,
       quiet: true,
       onChoice: (req, _obs, ans) => log(describeChoice(req, ans)),
+      onEvent: (msg) => log(msg, "event"),
     });
     renderBoard(res.state.observe(res.state.players[0]));
     const names = res.winners.length ? res.winners.map((p) => p.name).join(", ") : "nobody";

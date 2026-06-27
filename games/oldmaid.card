@@ -61,5 +61,7 @@ game "Old Maid" {
     }
 
     // everyone who got rid of all their cards wins; the Old Maid holder loses
-    winners => filter(players, p => !isActive(p));
+    // safe players are eliminated (score 1); the Old Maid holder stays active
+    // (score 0), so argmax(score) = everyone but the loser.
+    score p => isActive(p) ? 0 : 1;
 }

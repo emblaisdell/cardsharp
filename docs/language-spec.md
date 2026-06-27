@@ -1,12 +1,12 @@
-# The Card# Language — Reference (v0.1)
+# The ♠# Language — Reference (v0.1)
 
-Card# is a small, dynamically-typed scripting language with a domain library for
+♠# is a small, dynamically-typed scripting language with a domain library for
 card games. The syntax is C-styled (braces, `//` and `/* */` comments,
 C-ish operators); the semantics are card-centric.
 
 A program is exactly one `game` declaration.
 
-Card# is **statically (gradually) type-checked**: the compiler infers a type for
+♠# is **statically (gradually) type-checked**: the compiler infers a type for
 every expression and reports type errors — calling a non-function, `current.rank`
 (a player has no rank), passing a number where a zone is expected, arithmetic on
 a list — *before the game runs*, with line numbers. Where a type genuinely can't
@@ -81,14 +81,32 @@ game "Name" {
 
     function <name>(<params>) { <statements> }   // helpers
 
-    score   <param> => <expr>;     // per-player score (optional)
-    winners => <expr>;             // returns a player or list of players
+    score   <param> => <expr>;     // per-player value, HIGHER IS BETTER (may be <0)
+    winners => <expr>;             // optional override; a player or list of players
 }
 ```
 
 Order of sections is free. `setup` runs, then `flow` runs to completion. The game
 ends when `flow` returns/falls off the end, when `endGame()` is called, or when
 the engine detects a single remaining active player.
+
+### Score and winners
+
+`score` is the canonical per-player value: **higher is better**, and it may be
+negative (negate a penalty for golf-scored games like Crazy Bridge). The engine
+resolves the winner(s) in this priority order:
+
+1. an explicit `declareWinner(p)` / `declareWinners(list)` call made during play
+   (use this for odd cases — e.g. Blackjack, played against the dealer, where
+   *nobody* may win);
+2. an explicit `winners => <expr>;` declaration;
+3. **the default: the player(s) with the maximum `score`, ties included.**
+
+So most games just declare `score` and omit `winners` entirely. For elimination
+games, define `score` so the losers rank below the winners (e.g. eliminated
+players naturally have 0 lives / an empty pile). Because `score` is a real
+higher-is-better value, it doubles as the **value heuristic for tree search**
+(`packages/ml` MCTS can evaluate it at a depth cutoff instead of playing out).
 
 ### Zone specifications
 
