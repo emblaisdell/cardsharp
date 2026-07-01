@@ -1,0 +1,417 @@
+// Texas Hold'em — no-limit, numeric chip stacks used directly as the score.
+//
+// Chips, the pot, per-round bets and side-pots are all tracked as plain NUMBERS
+// (per-seat lists indexed by player id), not as cards — so a player's chip stack
+// IS their score:  `score p => chips[p.id]`.
+//
+// Demonstrates: hidden hole cards (owner-visible per-player zones) + a shared
+// face-up board, blinds + button rotation, a full betting round with
+// check/call/raise/fold and all-in, multi-street play (pre-flop / flop / turn /
+// river), a 7-card best-hand evaluator, side-pot construction, and elimination
+// of busted seats. The game runs hand after hand until one player holds all the
+// chips (or a safety cap of 300 hands is reached).
+
+game "Texas Hold'em" {
+    players 2..9;
+    deck    standard52;
+
+    zone stock : pile;                 // the shuffled draw pile (hidden)
+    zone hole  : hand per player;      // each player's 2 hole cards (owner sees)
+    zone board : spread up;            // the 5 community cards (everyone sees)
+    zone muck  : pile;                 // burn / discard pile (hidden)
+
+    // ---- table configuration ----
+    var START = 100;                   // starting stack, in chips
+    var SB    = 1;                     // small blind
+    var BB    = 2;                     // big blind
+
+    // ---- numeric per-seat state (indexed by player id) ----
+    var chips     = [];                // current stack — this is the score
+    var folded    = [];                // folded this hand?
+    var allIn     = [];                // all-in this hand?
+    var roundBet  = [];                // chips put in during THIS betting round
+    var committed = [];                // chips put in during the WHOLE hand (for pots)
+    var buttonId  = 0;                 // seat id of the dealer button
+
+    setup {
+        loadDeck(stock);
+        chips = map(players, p => START);
+    }
+
+    flow {
+        buttonId = first(active()).id;
+        var handNo = 0;
+        loop {
+            if (count(active()) <= 1) { break; }
+            if (handNo >= 300) { break; }
+            handNo = handNo + 1;
+            playHand();
+            for (p in players) {
+                if (isActive(p) && chips[p.id] <= 0) {
+                    eliminate(p);
+                    announce(p.name, "is eliminated");
+                }
+            }
+            advanceButton();
+        }
+        announce("=== Game over ===");
+    }
+
+    // =====================================================================
+    // One complete hand
+    // =====================================================================
+    function playHand() {
+        var order = active();          // seats dealt in this hand (id order)
+        var len   = count(order);
+
+        // reset per-hand numeric state
+        folded    = map(players, p => false);
+        allIn     = map(players, p => false);
+        roundBet  = map(players, p => 0);
+        committed = map(players, p => 0);
+
+        // fresh shuffle
+        gather();
+        shuffle(stock);
+
+        // deal two hole cards to each seat
+        for (o in order) { move(top(stock, 2), hole[o]); }
+
+        // locate the button within `order` and derive blind / action seats
+        var bpos = 0;
+        for (i in range(0, len - 1)) { if (order[i].id == buttonId) { bpos = i; } }
+        var sbpos = 0; var bbpos = 0; var firstPre = 0; var firstPost = 0;
+        if (len == 2) {
+            // heads-up: button is the small blind and acts first pre-flop
+            sbpos = bpos; bbpos = (bpos + 1) % 2;
+            firstPre = bpos; firstPost = bbpos;
+        } else {
+            sbpos = (bpos + 1) % len; bbpos = (bpos + 2) % len;
+            firstPre = (bpos + 3) % len; firstPost = sbpos;
+        }
+
+        announce("--- New hand --- button:", order[bpos].name,
+                 "blinds:", order[sbpos].name, SB, "/", order[bbpos].name, BB);
+
+        // post the blinds and open the pre-flop round at the big blind level
+        postBlind(order[sbpos].id, SB);
+        postBlind(order[bbpos].id, BB);
+        bettingRound(order, firstPre, BB, BB);
+
+        // flop / turn / river — deal and bet while more than one player remains
+        if (inHandCount(order) > 1) { dealStreet(3); announce("Flop:",  cards(board)); freshRound(); bettingRound(order, firstPost, 0, BB); }
+        if (inHandCount(order) > 1) { dealStreet(1); announce("Turn:",  cards(board)); freshRound(); bettingRound(order, firstPost, 0, BB); }
+        if (inHandCount(order) > 1) { dealStreet(1); announce("River:", cards(board)); freshRound(); bettingRound(order, firstPost, 0, BB); }
+
+        // resolve
+        if (inHandCount(order) > 1) { showdown(order); } else { awardPots(order); }
+    }
+
+    // reset the per-round bet ledger between streets (pre-flop keeps the blinds)
+    function freshRound() { roundBet = map(players, p => 0); }
+
+    // burn one card, then deal `n` cards to the board
+    function dealStreet(n) {
+        move(top(stock, 1), muck);
+        move(top(stock, n), board);
+    }
+
+    // =====================================================================
+    // Betting
+    // =====================================================================
+    function postBlind(pid, amt) {
+        var pay = amt < chips[pid] ? amt : chips[pid];   // clamp to a short stack
+        commit(pid, pay);
+        if (chips[pid] == 0) { allIn[pid] = true; }
+    }
+
+    // move `amt` chips from a seat's stack into the pot ledgers
+    function commit(pid, amt) {
+        chips[pid]     = chips[pid] - amt;
+        committed[pid] = committed[pid] + amt;
+        roundBet[pid]  = roundBet[pid] + amt;
+    }
+
+    function canAct(pid)  { return !folded[pid] && !allIn[pid] && chips[pid] > 0; }
+    function inHandCount(order) { return countIf(order, o => !folded[o.id]); }
+    function potTotal()   { return sum(map(players, p => committed[p.id])); }
+
+    // A single betting round. `startPos` is an index into `order`; `currentBet`
+    // is the amount (this round) each seat must match; `minRaise` is the minimum
+    // legal raise increment.
+    function bettingRound(order, startPos, currentBet, minRaise) {
+        var len   = count(order);
+        var acted = map(order, o => false);   // has this seat acted since the last raise?
+        var pos   = startPos;
+        var guard = 0;
+        loop {
+            guard = guard + 1;
+            if (guard > 500) { break; }
+            if (inHandCount(order) <= 1) { break; }
+
+            // find the next seat (from `pos`) that still owes action
+            var found = -1;
+            for (k in range(0, len - 1)) {
+                var q   = (pos + k) % len;
+                var qid = order[q].id;
+                if (canAct(qid) && (roundBet[qid] < currentBet || !acted[q])) { found = q; break; }
+            }
+            if (found == -1) { break; }
+
+            var p      = order[found];
+            var pid    = p.id;
+            var toCall = currentBet - roundBet[pid];
+            setCurrent(p);
+            var choice = askAction(p, toCall, currentBet, minRaise);
+            acted[found] = true;
+
+            if (choice == -1) {
+                folded[pid] = true;
+                announce(p.name, "folds");
+            } else {
+                commit(pid, choice);
+                if (chips[pid] == 0) { allIn[pid] = true; }
+                if (roundBet[pid] > currentBet) {
+                    // a raise: update the line, remember the increment, reopen action
+                    var raiseBy = roundBet[pid] - currentBet;
+                    if (raiseBy >= minRaise) { minRaise = raiseBy; }
+                    currentBet = roundBet[pid];
+                    acted = map(order, o => false);
+                    acted[found] = true;
+                    announce(p.name, toCall <= 0 ? "bets" : "raises to", currentBet, allIn[pid] ? "(all-in)" : "");
+                } else if (choice == 0) {
+                    announce(p.name, "checks");
+                } else {
+                    announce(p.name, "calls", choice, allIn[pid] ? "(all-in)" : "");
+                }
+            }
+            pos = (found + 1) % len;
+        }
+    }
+
+    // Present the legal actions to a player and return the number of chips they
+    // commit this action (0 = check, -1 = fold, otherwise the added amount).
+    function askAction(p, toCall, currentBet, minRaise) {
+        var pid   = p.id;
+        var stack = chips[pid];
+        var opts  = [];
+
+        if (toCall <= 0) {
+            opts = concat(opts, [labeled(0, "Check")]);
+        } else {
+            opts = concat(opts, [labeled(-1, "Fold")]);
+            var callAmt = toCall < stack ? toCall : stack;
+            var callTxt = callAmt >= stack ? ("Call " + callAmt + " (all-in)") : ("Call " + callAmt);
+            opts = concat(opts, [labeled(callAmt, callTxt)]);
+        }
+
+        // raises / opening bets are possible only if the stack exceeds the call
+        if (stack > toCall) {
+            var pot      = potTotal();
+            var minAdd   = (currentBet + minRaise) - roundBet[pid];   // reach the min legal raise
+            var halfAdd  = toCall + round((pot + toCall) / 2);
+            var potAdd   = toCall + (pot + toCall);
+            var cands    = [];
+            if (minAdd  < stack)                    { cands = concat(cands, [minAdd]);  }
+            if (halfAdd > minAdd && halfAdd < stack) { cands = concat(cands, [halfAdd]); }
+            if (potAdd  > minAdd && potAdd  < stack) { cands = concat(cands, [potAdd]);  }
+            cands = unique(cands);
+            var verb = currentBet == 0 ? "Bet" : "Raise to";
+            for (a in cands) {
+                opts = concat(opts, [labeled(a, verb + " " + (roundBet[pid] + a))]);
+            }
+            opts = concat(opts, [labeled(stack, "All-in " + (roundBet[pid] + stack))]);
+        }
+
+        return choose(p, opts, "Action (to call " + (toCall < 0 ? 0 : toCall) + ", pot " + potTotal() + ")");
+    }
+
+    // =====================================================================
+    // Showdown & pots
+    // =====================================================================
+    function showdown(order) {
+        announce("Showdown — board:", cards(board));
+        for (o in order) {
+            if (!folded[o.id]) {
+                announce(o.name, "shows", cards(hole[o]),
+                         "-", handName(handStrength(concat(cards(hole[o]), cards(board)))));
+            }
+        }
+        awardPots(order);
+    }
+
+    // Build side pots from the per-seat `committed` amounts and pay each to the
+    // best eligible (non-folded) hand.
+    function awardPots(order) {
+        var contenders = filter(order, o => !folded[o.id]);
+
+        // uncontested: everyone else folded — one player takes the whole pot
+        if (count(contenders) == 1) {
+            var w = first(contenders);
+            var total = potTotal();
+            chips[w.id] = chips[w.id] + total;
+            announce(w.name, "wins", total, "(uncontested)");
+            return;
+        }
+
+        var rem = map(players, p => committed[p.id]);   // remaining contribution per seat
+        loop {
+            var live = filter(players, p => rem[p.id] > 0);
+            if (count(live) == 0) { break; }
+
+            // this pot layer = the smallest remaining contribution across contributors
+            var lvl    = min(map(live, p => rem[p.id]));
+            var potAmt = lvl * count(live);
+            for (p in live) { rem[p.id] = rem[p.id] - lvl; }
+
+            // eligible winList contributed to this layer and did not fold
+            var elig = filter(live, p => !folded[p.id]);
+            if (count(elig) == 0) { elig = contenders; }
+
+            var best = -1;
+            for (p in elig) {
+                var s = handStrength(concat(cards(hole[p]), cards(board)));
+                if (s > best) { best = s; }
+            }
+            var winList = filter(elig, p => handStrength(concat(cards(hole[p]), cards(board))) == best);
+
+            var share = floor(potAmt / count(winList));
+            var odd   = potAmt - share * count(winList);
+            for (p in winList) { chips[p.id] = chips[p.id] + share; }
+            if (odd > 0) { chips[first(winList).id] = chips[first(winList).id] + odd; }
+
+            announce("Pot", potAmt, "to", map(winList, w => w.name), "(" + handName(best) + ")");
+        }
+    }
+
+    // =====================================================================
+    // 7-card hand evaluation.  handStrength returns a single number: higher is a
+    // better poker hand.  It packs a category (0..8) and up to five tie-break
+    // ranks in base-15, so a straight comparison of the numbers ranks the hands.
+    // =====================================================================
+    function handStrength(cs) {
+        // straight flush
+        var flushSuit = -1;
+        for (s in [0, 1, 2, 3]) { if (countIf(cs, c => c.suit == s) >= 5) { flushSuit = s; } }
+        if (flushSuit >= 0) {
+            var sfHi = bestStraight(presentWithWheel(filter(cs, c => c.suit == flushSuit)));
+            if (sfHi > 0) { return catVal(8, [sfHi]); }
+        }
+
+        var quads = ranksWithCount(cs, 4);
+        var trips = ranksWithCount(cs, 3);
+        var pairs = ranksWithCount(cs, 2);
+
+        // four of a kind
+        if (count(quads) > 0) {
+            var q = first(quads);
+            return catVal(7, concat([q], topN(cs, [q], 1)));
+        }
+        // full house (also two trips -> higher trip fills, lower trip is the pair)
+        if (count(trips) > 0) {
+            var pairCands = concat(drop(trips, 1), pairs);
+            if (count(pairCands) > 0) {
+                return catVal(6, [first(trips), max(pairCands)]);
+            }
+        }
+        // flush
+        if (flushSuit >= 0) {
+            var fr = reverse(sortBy(map(filter(cs, c => c.suit == flushSuit), c => rank14(c)), r => r));
+            return catVal(5, take(fr, 5));
+        }
+        // straight
+        var stHi = bestStraight(presentWithWheel(cs));
+        if (stHi > 0) { return catVal(4, [stHi]); }
+        // three of a kind
+        if (count(trips) > 0) {
+            var t = first(trips);
+            return catVal(3, concat([t], topN(cs, [t], 2)));
+        }
+        // two pair
+        if (count(pairs) >= 2) {
+            var p1 = first(pairs);
+            var p2 = first(drop(pairs, 1));
+            return catVal(2, concat([p1, p2], topN(cs, [p1, p2], 1)));
+        }
+        // one pair
+        if (count(pairs) == 1) {
+            var pp = first(pairs);
+            return catVal(1, concat([pp], topN(cs, [pp], 3)));
+        }
+        // high card
+        return catVal(0, topN(cs, [], 5));
+    }
+
+    // Ace counts high (14) for comparison; the wheel A-2-3-4-5 is handled in
+    // presentWithWheel by also treating an Ace as rank 1.
+    function rank14(c)     { return c.rank == 1 ? 14 : c.rank; }
+    function ranks14(cs)   { return map(cs, c => rank14(c)); }
+    function countRank(cs, r) { return countIf(cs, c => rank14(c) == r); }
+
+    // ranks appearing exactly `n` times, high to low
+    function ranksWithCount(cs, n) {
+        return reverse(sortBy(filter(range(2, 14), r => countRank(cs, r) == n), r => r));
+    }
+    // distinct ranks high to low, excluding any in `excl`, at most `n` of them
+    function topN(cs, excl, n) {
+        var ds = reverse(sortBy(unique(ranks14(cs)), r => r));
+        return take(filter(ds, r => !contains(excl, r)), n);
+    }
+    // distinct ranks present, plus rank 1 when an Ace is present (for the wheel)
+    function presentWithWheel(cs) {
+        var d = unique(ranks14(cs));
+        if (contains(d, 14)) { d = concat(d, [1]); }
+        return d;
+    }
+    // highest top-card of a 5-card straight in `present`, or 0 if none
+    function bestStraight(present) {
+        var best = 0;
+        for (hi in range(5, 14)) {
+            var ok = true;
+            for (k in range(0, 4)) { if (!contains(present, hi - k)) { ok = false; } }
+            if (ok) { best = hi; }
+        }
+        return best;
+    }
+    // pack category + tie-break ranks into one comparable number (base 15, 5 slots)
+    function catVal(category, ks) {
+        var v = category;
+        for (k in ks) { v = v * 15 + k; }
+        repeat (5 - count(ks)) { v = v * 15; }
+        return v;
+    }
+    function handName(st) {
+        var c = floor(st / 759375);        // 15^5
+        if (c == 8) { return "Straight Flush"; }
+        if (c == 7) { return "Four of a Kind"; }
+        if (c == 6) { return "Full House"; }
+        if (c == 5) { return "Flush"; }
+        if (c == 4) { return "Straight"; }
+        if (c == 3) { return "Three of a Kind"; }
+        if (c == 2) { return "Two Pair"; }
+        if (c == 1) { return "One Pair"; }
+        return "High Card";
+    }
+
+    // =====================================================================
+    // Table housekeeping
+    // =====================================================================
+    // pull every card back to the stock so the next hand deals from a full deck
+    function gather() {
+        for (p in players) { move(cards(hole[p]), stock); }
+        move(cards(board), stock);
+        move(cards(muck),  stock);
+    }
+    // move the button to the next still-active seat (by id, wrapping around)
+    function advanceButton() {
+        var act  = active();
+        var next = -1;
+        for (o in act) { if (next == -1 && o.id > buttonId) { next = o.id; } }
+        if (next == -1) { next = first(act).id; }
+        buttonId = next;
+    }
+
+    // a player's chip stack IS their score — higher is better; a busted (0-chip)
+    // eliminated seat naturally ranks last.
+    score p => chips[p.id];
+}
