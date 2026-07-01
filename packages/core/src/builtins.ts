@@ -450,6 +450,22 @@ export function makeBuiltins(state: GameState): Map<string, Callable> {
     else if (state.globals.get("__quiet") !== true) console.log("»", msg);
     return null;
   });
+  // Attach free-form display text to a player for the UI (persists until
+  // changed): e.g. a chip count, current bet, or "folded"/"all-in" status.
+  // `null` clears it. This is a display annotation only — it never affects game
+  // logic — and any value is accepted, not just strings.
+  pure("setLabel", (args) => {
+    const p = asPlayer(args[0], "setLabel");
+    if (args[1] === null) state.labels.delete(p.id);
+    else state.labels.set(p.id, display(args[1]));
+    return null;
+  });
+  // A single table-wide status line for the UI (e.g. the pot / street). `null`
+  // clears it.
+  pure("setStatus", (args) => {
+    state.status = args[0] === null ? "" : display(args[0]);
+    return null;
+  });
   pure("rng", () => state.rng.next());
   pure("abs", (args) => Math.abs(num(args[0])));
   pure("floor", (args) => Math.floor(num(args[0])));

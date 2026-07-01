@@ -32,10 +32,32 @@ game "Texas Hold'em" {
     var roundBet  = [];                // chips put in during THIS betting round
     var committed = [];                // chips put in during the WHOLE hand (for pots)
     var buttonId  = 0;                 // seat id of the dealer button
+    var street    = "";                // current street name, for the UI status line
 
     setup {
         loadDeck(stock);
-        chips = map(players, p => START);
+        chips     = map(players, p => START);
+        folded    = map(players, p => false);
+        allIn     = map(players, p => false);
+        roundBet  = map(players, p => 0);
+        committed = map(players, p => 0);
+        updateUI();
+    }
+
+    // Push the current chips / bets / pot into the UI as free-form text:
+    // each seat gets a label (stack, current bet, folded / all-in, button), and
+    // the table gets a status line (pot + street).
+    function updateUI() {
+        for (p in players) {
+            var s = "" + chips[p.id];
+            if (!isActive(p))            { s = "out"; }
+            else if (folded[p.id])       { s = s + " · folded"; }
+            else if (allIn[p.id])        { s = s + " · all-in"; }
+            else if (roundBet[p.id] > 0) { s = s + " · bet " + roundBet[p.id]; }
+            if (p.id == buttonId && isActive(p)) { s = s + " Ⓑ"; }
+            setLabel(p, s);
+        }
+        setStatus("Pot " + potTotal() + (street == "" ? "" : (" · " + street)));
     }
 
     flow {
@@ -53,7 +75,10 @@ game "Texas Hold'em" {
                 }
             }
             advanceButton();
+            updateUI();
         }
+        street = "";
+        updateUI();
         announce("=== Game over ===");
     }
 
@@ -94,17 +119,21 @@ game "Texas Hold'em" {
                  "blinds:", order[sbpos].name, SB, "/", order[bbpos].name, BB);
 
         // post the blinds and open the pre-flop round at the big blind level
+        street = "pre-flop";
         postBlind(order[sbpos].id, SB);
         postBlind(order[bbpos].id, BB);
+        updateUI();
         bettingRound(order, firstPre, BB, BB);
 
         // flop / turn / river — deal and bet while more than one player remains
-        if (inHandCount(order) > 1) { dealStreet(3); announce("Flop:",  cards(board)); freshRound(); bettingRound(order, firstPost, 0, BB); }
-        if (inHandCount(order) > 1) { dealStreet(1); announce("Turn:",  cards(board)); freshRound(); bettingRound(order, firstPost, 0, BB); }
-        if (inHandCount(order) > 1) { dealStreet(1); announce("River:", cards(board)); freshRound(); bettingRound(order, firstPost, 0, BB); }
+        if (inHandCount(order) > 1) { dealStreet(3); street = "flop";  announce("Flop:",  cards(board)); freshRound(); updateUI(); bettingRound(order, firstPost, 0, BB); }
+        if (inHandCount(order) > 1) { dealStreet(1); street = "turn";  announce("Turn:",  cards(board)); freshRound(); updateUI(); bettingRound(order, firstPost, 0, BB); }
+        if (inHandCount(order) > 1) { dealStreet(1); street = "river"; announce("River:", cards(board)); freshRound(); updateUI(); bettingRound(order, firstPost, 0, BB); }
 
         // resolve
+        street = "showdown";
         if (inHandCount(order) > 1) { showdown(order); } else { awardPots(order); }
+        updateUI();
     }
 
     // reset the per-round bet ledger between streets (pre-flop keeps the blinds)
@@ -162,6 +191,7 @@ game "Texas Hold'em" {
             var pid    = p.id;
             var toCall = currentBet - roundBet[pid];
             setCurrent(p);
+            updateUI();
             var choice = askAction(p, toCall, currentBet, minRaise);
             acted[found] = true;
 

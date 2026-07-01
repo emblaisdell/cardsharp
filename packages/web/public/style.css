@@ -65,6 +65,16 @@ main { display: grid; grid-template-columns: 1fr 340px; gap: 18px; padding: 8px 
 .player.out { opacity: 0.45; }
 .pname { font-weight: 600; margin-bottom: 6px; }
 .pname .tag { font-size: 11px; color: var(--muted); font-weight: 400; margin-left: 6px; }
+/* free-form game text: per-player label + table status line */
+.pname .plabel {
+  font-size: 12px; font-weight: 600; color: var(--turn); margin-left: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.pname .pstatus {
+  font-size: 12px; font-weight: 500; color: var(--accent); margin-left: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.player.table { border-style: dashed; }
 .zone { display: flex; align-items: center; gap: 8px; margin: 3px 0; flex-wrap: wrap; }
 .zone .zname { font-size: 11px; color: var(--muted); width: 92px; flex: none; }
 .cards { display: flex; gap: 4px; flex-wrap: wrap; }

@@ -38,6 +38,12 @@ export class GameState {
   // game-global variables (var declarations at game scope, plus engine vars)
   globals = new Map<string, CSValue>();
 
+  // free-form display text the game attaches for the UI (not game logic):
+  // a per-player label (chips / bet / status) and one table-wide status line.
+  // Public — the same text is shown to every viewer.
+  labels = new Map<number, string>();
+  status = "";
+
   // optional host sink for announce() narration (UI move log, CLI, etc.)
   onAnnounce: ((msg: string) => void) | null = null;
 
@@ -122,6 +128,8 @@ export class GameState {
     c.rng = this.rng.clone();
     c.globals = new Map();
     for (const [k, v] of this.globals) c.globals.set(k, cloneValue(v, pmap));
+    c.labels = new Map(this.labels);
+    c.status = this.status;
     c.onAnnounce = null;
     return c;
   }
@@ -225,8 +233,14 @@ export class GameState {
     return {
       viewer: viewer.id,
       current: this.current.id,
-      players: this.players.map((p) => ({ id: p.id, name: p.name, out: p.eliminated })),
+      players: this.players.map((p) => ({
+        id: p.id,
+        name: p.name,
+        out: p.eliminated,
+        label: this.labels.get(p.id) ?? "",
+      })),
       zones,
+      status: this.status,
       turn: this.turnCount,
     };
   }
@@ -265,7 +279,8 @@ export interface ZoneView {
 export interface Observation {
   viewer: number;
   current: number;
-  players: { id: number; name: string; out: boolean }[];
+  players: { id: number; name: string; out: boolean; label: string }[];
   zones: Record<string, ZoneView | ZoneView[]>;
+  status: string;
   turn: number;
 }

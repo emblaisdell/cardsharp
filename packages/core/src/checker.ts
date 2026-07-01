@@ -587,6 +587,8 @@ fixed("suitName", [T.num], T.str);
 // misc
 fixed("log", [T.any], T.void, 0, T.any);
 fixed("announce", [T.any], T.void, 0, T.any);
+fixed("setLabel", [T.player, T.any], T.void);   // per-player UI text (any value)
+fixed("setStatus", [T.any], T.void);            // table-wide UI status line
 fixed("rng", [], T.num);
 fixed("abs", [T.num], T.num);
 fixed("floor", [T.num], T.num);

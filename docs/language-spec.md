@@ -301,6 +301,22 @@ labeled(value, text)                  // an option that displays as `text` but
                                       //   resolves to `value`
 ```
 
+**UI display (free-form text)**
+
+```
+announce(...)          // one-shot narration appended to the move log
+setLabel(player, x)    // persistent per-player text (any value; null clears)
+setStatus(x)           // one persistent table-wide status line (null clears)
+```
+
+`setLabel`/`setStatus` attach arbitrary *display* text — a chip stack, a bet, a
+"folded"/"all-in" status, a pot total — that the UI renders next to each player
+and above the shared zones. They are annotations only: they never affect game
+logic, they accept any value (not just numbers — a number/string/card renders via
+its display form), and the same text is shown to every viewer. The text persists
+until overwritten (or cleared with `null`), so re-set it whenever the state it
+reflects changes. See `games/holdem.card` (chips / bets / pot).
+
 **Misc**
 
 ```

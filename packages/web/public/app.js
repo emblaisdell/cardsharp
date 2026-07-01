@@ -11,6 +11,9 @@ const SUIT = ["♣", "♦", "♥", "♠"];
 const RANK = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
 
 const $ = (id) => document.getElementById(id);
+// escape game-supplied text before it goes into innerHTML
+const escapeText = (s) =>
+  String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const gameSel = $("game");
 const playersSel = $("players");
 const oppSel = $("opponents");
@@ -65,10 +68,11 @@ function renderBoard(obs) {
     if (Array.isArray(v)) perPlayer.push([name, v]);
     else shared.push([name, v]);
   }
-  if (shared.length) {
+  if (shared.length || obs.status) {
     const panel = document.createElement("div");
-    panel.className = "player";
-    panel.innerHTML = `<div class="pname">Table</div>`;
+    panel.className = "player table";
+    panel.innerHTML = `<div class="pname">Table` +
+      `${obs.status ? `<span class="pstatus">${escapeText(obs.status)}</span>` : ""}</div>`;
     for (const [name, view] of shared) panel.appendChild(zoneRow(name, view, "shared:" + name));
     boardEl.appendChild(panel);
   }
@@ -82,7 +86,9 @@ function renderBoard(obs) {
     panel.innerHTML = `<div class="pname">${p.name}` +
       `${p.id === obs.viewer ? '<span class="tag">you</span>' : ""}` +
       `${p.id === obs.current ? '<span class="tag">to act</span>' : ""}` +
-      `${p.out ? '<span class="tag">out</span>' : ""}</div>`;
+      `${p.out ? '<span class="tag">out</span>' : ""}` +
+      // free-form per-player text set by the game (chips / bet / status)
+      `${p.label ? `<span class="plabel">${escapeText(p.label)}</span>` : ""}</div>`;
     for (const [name, arr] of perPlayer) panel.appendChild(zoneRow(name, arr[p.id], p.id + ":" + name));
     boardEl.appendChild(panel);
   }
