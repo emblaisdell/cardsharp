@@ -30,6 +30,10 @@ button:active { transform: translateY(1px); }
 }
 #new:hover { background: #5fe0d4; }
 .status { color: var(--turn); font-size: 13px; align-self: center; }
+.setup.mp { border-top: 1px dashed #2a323d; padding-top: 12px; }
+.opp-note { font-size: 11px; margin-top: 4px; max-width: 280px; }
+.opp-note.ok { color: var(--accent); }
+.opp-note.warn { color: var(--turn); }
 main { display: grid; grid-template-columns: 1fr 340px; gap: 18px; padding: 8px 24px 24px; }
 .board {
   display: flex; flex-direction: column; gap: 12px;

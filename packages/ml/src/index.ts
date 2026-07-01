@@ -6,6 +6,9 @@ export { train, type TrainOptions, type TrainResult } from "./trainer.ts";
 export { evaluate, type EvalOptions, type EvalResult } from "./evaluate.ts";
 export { featurizeOptions, FEATURE_NAMES, DIM } from "./features.ts";
 export { MctsController, type MctsOptions } from "./mcts.ts";
+export { ismctsAction, playIsmctsGame, type IsmctsOptions } from "./ismcts.ts";
+export { NetPlayer, stateFeatures } from "./netplay.ts";
+export { neuralIsmctsAction, type NeuralIsmctsOptions } from "./neural-ismcts.ts";
 export {
   winRate,
   randomFactory,

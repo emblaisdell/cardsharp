@@ -12,6 +12,8 @@ export { parse, ParseError } from "./parser.ts";
 export { check, TypeCheckError, type Diagnostic } from "./checker.ts";
 export { type Type, show as showType, assignable } from "./types.ts";
 export { Interpreter } from "./interpreter.ts";
+export { SyncInterp, SyncEnv, runToCompletion, type Decide } from "./vm-sync.ts";
+export { Machine, runMachine, type StepResult } from "./vm.ts";
 export type { Eval } from "./interpreter.ts";
 export { makeBuiltins } from "./builtins.ts";
 export {

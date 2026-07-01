@@ -52,6 +52,17 @@ if (existsSync(join(root, "models"))) {
   for (const f of readdirSync(join(root, "models"))) {
     if (f.endsWith(".json")) cpSync(join(root, "models", f), join(pm, f));
   }
+  // neural nets (DMC) for the hybrid Neural-IS-MCTS bot
+  const pyDir = join(root, "models", "py");
+  if (existsSync(pyDir)) {
+    const pmpy = join(pm, "py");
+    mkdirSync(pmpy, { recursive: true });
+    let nets = 0;
+    for (const f of readdirSync(pyDir)) {
+      if (f.endsWith("_dmc.netjson")) { cpSync(join(pyDir, f), join(pmpy, f)); nets++; }
+    }
+    console.log(`  copied ${nets} DMC nets for the hybrid bot`);
+  }
 }
 
 console.log(`built: ${nCore} core modules, ${nMl} ml modules, ${cards.length} games -> ${pub}`);

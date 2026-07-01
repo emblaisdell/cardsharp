@@ -1,0 +1,10 @@
+{
+  "name": "@cardsharp/server",
+  "version": "0.1.0",
+  "description": "Matchmaking + WebRTC signaling server for ♠# multiplayer. Zero dependencies, no game logic — it only relays signaling and serves the static client.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "license": "MIT"
+}

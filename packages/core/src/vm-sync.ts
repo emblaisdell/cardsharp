@@ -61,15 +61,17 @@ export class SyncInterp {
   protected hasScore = false;
   protected builtins: Map<string, Callable>;
 
-  constructor(program: A.Program, state: GameState, decide: Decide) {
+  constructor(program: A.Program, state: GameState, decide: Decide, opts?: { skipZones?: boolean }) {
     this.program = program;
     this.state = state;
     this.decide = decide;
     this.builtins = makeBuiltins(state);
-    this.installGlobals();
+    this.installGlobals(opts?.skipZones ?? false);
   }
 
-  protected installGlobals(): void {
+  // skipZones: the GameState already has its zones/piles (e.g. a clone) — bind
+  // names to the existing handles instead of re-creating piles.
+  protected installGlobals(skipZones: boolean): void {
     for (const [name, fn] of this.builtins) this.global.define(name, fn);
     const consts: Record<string, CSValue> = {
       Ace: 1, Jack: 11, Queen: 12, King: 13,
@@ -83,11 +85,13 @@ export class SyncInterp {
     this.dynamic.set("players", () => [...this.state.players]);
     this.dynamic.set("activePlayers", () => this.state.activePlayers());
 
-    for (const s of this.program.sections) {
-      if (s.type === "ZoneDecl") {
-        this.state.defineZone({
-          name: s.name, perPlayer: s.perPlayer, visibility: s.visibility, layout: s.layout,
-        });
+    if (!skipZones) {
+      for (const s of this.program.sections) {
+        if (s.type === "ZoneDecl") {
+          this.state.defineZone({
+            name: s.name, perPlayer: s.perPlayer, visibility: s.visibility, layout: s.layout,
+          });
+        }
       }
     }
     for (const [name] of this.state.zoneDefs) {
@@ -329,21 +333,23 @@ export class SyncInterp {
     }
   }
   protected evalBinary(expr: A.Binary, env: SyncEnv): CSValue {
-    const a = this.evalExpr(expr.left, env);
-    const b = this.evalExpr(expr.right, env);
-    switch (expr.op) {
+    return this.applyBinary(expr.op, this.evalExpr(expr.left, env), this.evalExpr(expr.right, env), expr.line);
+  }
+  // value-level binary op, reused by the resumable stepper
+  protected applyBinary(op: string, a: CSValue, b: CSValue, line: number): CSValue {
+    switch (op) {
       case "==": return this.equals(a, b);
       case "!=": return !this.equals(a, b);
       case "+":
         if (typeof a === "string" || typeof b === "string") return display(a) + display(b);
-        return this.num(a, expr.line) + this.num(b, expr.line);
-      case "-": return this.num(a, expr.line) - this.num(b, expr.line);
-      case "*": return this.num(a, expr.line) * this.num(b, expr.line);
-      case "/": return this.num(a, expr.line) / this.num(b, expr.line);
-      case "%": return this.num(a, expr.line) % this.num(b, expr.line);
-      case "<": case "<=": case ">": case ">=": return this.compare(a, b, expr.op, expr.line);
+        return this.num(a, line) + this.num(b, line);
+      case "-": return this.num(a, line) - this.num(b, line);
+      case "*": return this.num(a, line) * this.num(b, line);
+      case "/": return this.num(a, line) / this.num(b, line);
+      case "%": return this.num(a, line) % this.num(b, line);
+      case "<": case "<=": case ">": case ">=": return this.compare(a, b, op, line);
     }
-    throw new RuntimeError(`unknown operator ${expr.op}`, expr.line);
+    throw new RuntimeError(`unknown operator ${op}`, line);
   }
   protected equals(a: CSValue, b: CSValue): boolean {
     if (a === b) return true;

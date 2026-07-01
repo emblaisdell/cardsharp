@@ -125,7 +125,8 @@ cardsharp/
     ├── cli/                    # `cardsharp run games/gofish.card`
     ├── web/                    # static WebRTC client (no server-side game logic)
     ├── server/                # minimal signaling / matchmaking server
-    └── ml/                     # classical self-play strategy learner
+    ├── ml/                     # classical self-play strategy learner (linear, MCTS, IS-MCTS)
+    └── pyengine/               # Python port of the engine + PyTorch self-play (DMC, PPO)
 ```
 
 ---
@@ -144,10 +145,20 @@ cardsharp/
 | Test suite (lexer/parser/checker/interpreter/self-play) | ✅ 19 tests |
 | **All 8 games** (Go Fish, Old Maid, Blackjack, Thirty-One, Crazy Bridge, Money Money Money, Table-less, The Wall) | ✅ implemented, type-checked, regression-tested |
 | Classical-ML self-play trainer + agents | ✅ linear policy-gradient (`packages/ml`), +6 to +34 pt lift |
-| Browser version (static, local play vs bots/ML) | ✅ zero-dep bundle (`packages/web`) |
-| WebRTC multiplayer + signaling/matchmaking server | 🔜 last |
+| Resumable/cloneable engine + **fair information-set MCTS** | ✅ `packages/core` (`Machine`) + `packages/ml` (`ismcts`), playable in the browser |
+| Browser version (static, vs Random / ML / fair IS-MCTS) | ✅ zero-dep bundle (`packages/web`) |
+| WebRTC multiplayer + signaling/matchmaking server | ✅ authoritative host over WebRTC (`packages/server`, `web/public/net.js`) |
+| **RL research** (imperfect-info / stochastic games) | ✅ [docs/ml-research.md](docs/ml-research.md) — cited, actionable |
+| **Python engine** (faithful port, equivalence-tested vs TS) | ✅ `packages/pyengine` (0-mismatch trace diff on all 8 games) |
+| **Neural self-play** (DMC / DouZero + PPO, PyTorch) | ✅ `packages/pyengine/ml` — shared card-matrix + per-option action net |
+| **Neural-IS-MCTS hybrid** (net prior + value inside fair search) | ✅ [docs/neural-ismcts.md](docs/neural-ismcts.md) — playable in the browser |
+| **Cloneable Python stepper + AlphaZero loop** (MCTS self-play → train) | ✅ `pyengine/cardsharp/vm.py` + `ml/alphazero.py` (equivalence-tested) |
 
-Legend: ✅ done · 🔜 planned next.
+Legend: ✅ done.
+
+**Everything on the original roadmap is implemented.** For multiplayer:
+`node packages/server/server.mjs`, open two tabs, create a room in one and join
+with its code in the other (see `packages/server/README.md`).
 
 Try it:
 
@@ -165,10 +176,11 @@ node tools/vscode-cardsharp/install.mjs   # install editor support
 2. **Game coverage** — implement all eight games; every new game that needs a
    primitive the language lacks is a signal to extend the language, not to
    special-case the game. This is the language's correctness test.
-3. **Multiplayer** — the interpreter runs *locally on each peer*; peers stay in
-   sync because the game is deterministic given a shared RNG seed and the
-   sequence of chosen moves. The server only does matchmaking + WebRTC signaling
-   (offer/answer/ICE relay); it never sees game logic. Fully static client.
+3. **Multiplayer** — an **authoritative host** runs the interpreter and all bots;
+   guests are thin clients that receive only their own masked observation and
+   their own decisions, so hidden cards never leave the host. Peers connect over
+   WebRTC; the server only does matchmaking + signaling (offer/answer/ICE relay)
+   and never sees game logic. Fully static client.
 4. **ML** — because the engine exposes `(observation, legalMoves)` at every
    decision point and a terminal reward, a game is a sequential decision process.
    Start with tabular/linear methods over hand-rolled features
@@ -185,11 +197,39 @@ No build step is required — the core runs on Node 22+ native TypeScript.
 # play / simulate a game with random bots
 node packages/cli/src/main.ts run games/gofish.card --players 3 --seed 1
 
-# run the test suite
-node --test packages/core/test/
+# run the test suite (use the glob form — the bare directory form misreports)
+node --test 'packages/core/test/*.test.ts'
 ```
 
 (Convenience `npm` scripts are wired in `package.json`.)
+
+---
+
+## Neural strategy learning (Python + PyTorch)
+
+Beyond the linear policy-gradient agent in `packages/ml`, the repo includes a
+**faithful Python port of the engine** (`packages/pyengine`) so reinforcement-
+learning self-play runs in-process, plus two stronger, neural methods chosen from
+the survey in **[docs/ml-research.md](docs/ml-research.md)**:
+
+* **DMC** — DouZero-style Deep Monte-Carlo: regress `Q(state, action)` to the
+  seat's self-play outcome.
+* **PPO** — clipped policy gradient with an entropy bonus (the simple baseline
+  recent work found competitive with CFR/NFSP on imperfect-information games).
+
+Both share one network: a permutation-invariant **card-matrix** state encoder and
+a **per-option action scorer**, so a single architecture spans every game's
+different, variable-sized action set. The port deals/shuffles bit-identically to
+the TS engine and is verified by diffing the full decision trace of all 8 games
+(`packages/pyengine/crossval.sh`, 0 mismatches). Results: see
+**[docs/ml-pytorch-results.md](docs/ml-pytorch-results.md)**.
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install numpy torch --index-url https://download.pytorch.org/whl/cpu
+cd packages/pyengine
+../../.venv/bin/python -m ml.run_experiments --seconds 60 --games 30
+```
 
 ---
 

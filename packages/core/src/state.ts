@@ -164,6 +164,27 @@ export class GameState {
     return c;
   }
 
+  // Like determinize(), but reshuffles the unseen cards IN PLACE (mutating the
+  // existing pile arrays) rather than producing a new state. Used to determinize
+  // a cloned VM whose continuation already references these pile objects.
+  determinizeInPlace(viewer: Player, rng: RNG): void {
+    const hidden: Pile[] = [];
+    const pool: Card[] = [];
+    const collect = (pile: Pile): void => {
+      if (!this.canSeePile(pile, viewer.id)) {
+        hidden.push(pile);
+        for (const c of pile.cards) pool.push(c);
+      }
+    };
+    for (const pile of this.sharedPiles.values()) collect(pile);
+    for (const piles of this.perPlayerPiles.values()) for (const pile of piles) collect(pile);
+    rng.shuffle(pool);
+    let i = 0;
+    for (const pile of hidden) {
+      for (let k = 0; k < pile.cards.length; k++) pile.cards[k] = pool[i++];
+    }
+  }
+
   // ---- deck ----
   buildStandard52(into: Pile): void {
     for (let suit = 0; suit < 4; suit++) {

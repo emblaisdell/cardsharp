@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { compile, runGame, GameState, RNG } from "../src/index.ts";
 import type { ChoiceRequest, CSValue, Controller } from "../src/index.ts";
 import { runToCompletion } from "../src/vm-sync.ts";
+import { runMachine } from "../src/vm.ts";
 
 // A SEEDED-random policy: it draws exactly once per decision from its own RNG.
 // Given the same seed and the same decision sequence (same game, same game seed),
@@ -41,12 +42,16 @@ for (const f of files) {
       const gen = await runGame(program, controllers, { players: seats, seed, quiet: true });
       const genWinners = gen.winners.map((p) => p.id).sort((a, b) => a - b);
 
-      const state = new GameState(seats, seed);
-      const syncWinners = runToCompletion(program, state, makePolicy())
+      const syncWinners = runToCompletion(program, new GameState(seats, seed), makePolicy())
         .map((p) => p.id)
         .sort((a, b) => a - b);
+      assert.deepEqual(syncWinners, genWinners, `${f} seed ${seed}: sync evaluator mismatch`);
 
-      assert.deepEqual(syncWinners, genWinners, `${f} seed ${seed} seats ${seats}: winner mismatch`);
+      // the resumable stepper must also match (drives start/supply/next)
+      const machineWinners = runMachine(program, new GameState(seats, seed), makePolicy())
+        .map((p) => p.id)
+        .sort((a, b) => a - b);
+      assert.deepEqual(machineWinners, genWinners, `${f} seed ${seed}: stepper mismatch`);
     }
   });
 }

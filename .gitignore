@@ -10,3 +10,8 @@ models/
 
 *.log
 .DS_Store
+
+.venv
+__pycache__/
+*.pyc
+packages/pyengine/cv.out
